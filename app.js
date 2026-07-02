@@ -340,6 +340,10 @@
   function diviOverlay() {
     var fab = document.getElementById("diviFab");
     if (!fab) return;
+    // Internal design aid — hidden by default. Reveal with ?divi=1 (or #divi).
+    var enabled = /[?&]divi=1/.test(location.search) || /(^|#)divi$/.test(location.hash);
+    if (!enabled) return;
+    fab.style.display = "inline-flex";
     var tags = [];
     function clearTags() { tags.forEach(function (t) { t.remove(); }); tags = []; }
     function placeTags() {

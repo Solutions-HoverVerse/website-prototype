@@ -273,6 +273,38 @@ a.suite { color: inherit; text-decoration: none; }
 @media (max-width: 880px) { .metric-strip { grid-template-columns: 1fr 1fr; } .metric:nth-child(2) { border-right: 0; } .metric:nth-child(1), .metric:nth-child(2) { border-bottom: 1px solid var(--line); } .band-dark .metric:nth-child(1), .band-dark .metric:nth-child(2) { border-bottom-color: var(--dark-line); } }
 @media (max-width: 520px) { .metric-strip { grid-template-columns: 1fr; } .metric { border-right: 0 !important; border-bottom: 1px solid var(--line); } }
 
+.subhead { font-family: var(--sans); font-size: clamp(18px, 1.55vw, 22px); font-weight: 600; color: var(--green-deep); margin: 0 0 8px; letter-spacing: -0.01em; }
+.band-dark .subhead { color: var(--green-bright); }
+
+.app-label { display: flex; align-items: center; gap: 12px; margin: 34px 0 18px; font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--green-deep); font-weight: 600; }
+.app-label::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.band-dark .app-label { color: var(--green-bright); }
+.band-dark .app-label::after { background: var(--dark-line); }
+
+/* ---------- Vertical mapping matrix ---------- */
+.matrix { border: 1px solid var(--line); border-radius: var(--r-lg); overflow: hidden; background: var(--white); box-shadow: 0 24px 60px -44px rgba(16,21,27,.4); }
+.matrix-row { display: grid; grid-template-columns: 0.92fr 1.32fr 1.02fr; border-bottom: 1px solid var(--line); color: inherit; text-decoration: none; transition: background .2s; }
+.matrix-row:last-child { border-bottom: 0; }
+a.matrix-row:hover { background: var(--green-soft); }
+.matrix-row > div { padding: 22px 24px; border-right: 1px solid var(--line); }
+.matrix-row > div:last-child { border-right: 0; }
+.matrix-row.head > div { padding: 15px 24px; font-family: var(--mono); font-size: 11.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--faint); background: var(--paper-2); }
+.matrix .line b { display: block; font-family: var(--sans); font-weight: 700; font-size: 18px; color: var(--green-deep); letter-spacing: -0.01em; }
+.matrix .line span { font-size: 13px; color: var(--muted); }
+.matrix .line .go { display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; font-family: var(--mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); }
+a.matrix-row:hover .line .go { color: var(--green-deep); }
+.matrix .line .go .arr { transition: transform .2s var(--ease); }
+a.matrix-row:hover .line .go .arr { transform: translateX(3px); }
+.matrix .outcome { font-size: 15px; color: var(--slate-2); line-height: 1.45; }
+.matrix .tech { font-size: 14px; color: var(--muted); line-height: 1.45; }
+.matrix .tech b { color: var(--green-deep); font-weight: 600; }
+@media (max-width: 780px) {
+  .matrix-row { grid-template-columns: 1fr; }
+  .matrix-row > div { border-right: 0; border-bottom: 1px solid var(--line); }
+  .matrix-row > div:last-child { border-bottom: 0; }
+  .matrix-row.head { display: none; }
+}
+
 /* ---------- Living Heritage suite ---------- */
 .suite-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; }
 .suite {
@@ -307,6 +339,10 @@ a.suite { color: inherit; text-decoration: none; }
   background: var(--white); transition: transform .25s var(--ease), border-color .25s, box-shadow .25s;
 }
 .hygiene-card:hover { transform: translateX(6px); border-color: var(--green-line); box-shadow: 0 20px 50px -34px rgba(16,21,27,.4); }
+a.hygiene-card { color: inherit; text-decoration: none; }
+.card-go { display: inline-flex; align-items: center; gap: 7px; margin-top: 12px; font-family: var(--mono); font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--green-deep); font-weight: 600; }
+.card-go .arr { transition: transform .2s var(--ease); }
+a.hygiene-card:hover .card-go .arr { transform: translateX(4px); }
 .hygiene-card .hg-ic { width: 48px; height: 48px; flex: none; border-radius: 13px; display: grid; place-items: center;
   background: var(--green-soft); border: 1px solid var(--green-line); color: var(--green-deep); }
 .hygiene-card h4 { font-size: 20px; margin: 0 0 6px; letter-spacing: -0.02em; }
@@ -357,6 +393,7 @@ a.suite { color: inherit; text-decoration: none; }
 .footer-bot { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding-top: 28px;
   border-top: 1px solid var(--dark-line); color: var(--faint); font-size: 13.5px; flex-wrap: wrap; }
 .footer-bot .distinct { color: var(--on-dark-mut); }
+.footer-bot .disclaimer { font-size: 11px; color: var(--faint); opacity: .7; }
 
 /* ---------- Reveal ---------- */
 .reveal { opacity: 0; transform: translateY(24px); transition: opacity .6s var(--ease), transform .6s var(--ease); }
@@ -369,7 +406,7 @@ a.suite { color: inherit; text-decoration: none; }
    ============================================================ */
 .divi-fab {
   position: fixed; right: 22px; bottom: 22px; z-index: 200;
-  display: inline-flex; align-items: center; gap: 9px;
+  display: none; align-items: center; gap: 9px;
   font-family: var(--sans); font-weight: 650; font-size: 14px;
   min-height: 50px; padding: 0 20px; border-radius: var(--r-pill); cursor: pointer;
   color: #fff; background: var(--green); border: 0; box-shadow: 0 12px 30px -10px rgba(18,160,106,.7);
