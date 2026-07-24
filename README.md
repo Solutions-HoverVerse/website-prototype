@@ -1,34 +1,37 @@
-# Hoververse Website — Scaffold
+# HoverVerse Website
 
-Working scaffold for the Hoververse marketing site. Self-contained and ready
-for more edits, additions, and tweaks.
+Marketing + investor site for HoverVerse (Hover Touch Technologies Inc. dba HoverVerse AI).
+Self-contained static site — no build step.
 
 ## Open it
-Open `index.html` in a browser. No build step required.
+Open `index.html` in a browser, or deploy the folder to any static/WordPress host.
 
-## Files
-- `index.html` ............ Homepage (Divi-tagged).
-- `solutions.html` ........ Solutions page: Living Heritage, Hover SR (retail),
-                            Hover Health (healthcare).
-- `styles.css` ........... All styles + design tokens (`:root` variables:
-                            colors, type scale, spacing, radii).
-- `app.js` ............... Interactions: hero projected-wall demo, scroll
-                            reveals, mobile nav, Divi overlay. Vanilla JS.
-- `tweaks-app.jsx` ....... The Tweaks panel contents (accent, heading scale,
-                            heads-up label, reduce-motion). Edit defaults here.
-- `tweaks-panel.jsx` ..... Tweaks framework (don't usually need to touch).
-- `assets/` .............. Official HoverVerse logos, wordmarks, glyphs.
+## Pages
+- `index.html` ................. Homepage.
+- `solutions.html` ............. Solutions overview + verticals (Living Heritage,
+                                 Hover SR retail, Biosafety & cleanrooms, rehab)
+                                 with the vertical-integration mapping matrix.
+- `hover-health.html` .......... Dedicated Hover Health page (touchless clinical
+                                 workflow infrastructure; healthcare beachhead).
+- `investors.html` ............ Public investor teaser.
+- `investors-confidential.html`  Password-gated confidential materials
+                                 (AES-encrypted; payload in the .js below).
+- `investors-confidential-payload.js` — encrypted confidential content blob.
 
-## Editing notes
-- Brand colors / fonts / spacing live as `--*` tokens at the top of styles.css.
-- Copy edits: search index.html for the text; it's plain semantic HTML.
+## Shared
+- `styles.css` ................ All styles + design tokens (`:root` variables).
+- `app.js` ................... Interactions: hero video, scroll reveals, mobile
+                               nav, Divi structure overlay (enable with `?divi=1`).
+- `tweaks-app.jsx` / `tweaks-panel.jsx` — homepage Tweaks panel.
+- `assets/` .................. Logos, wordmarks, glyphs, hero video.
+- `HoverVerse Brand Guide.md` . Colors, type, logo usage, vocabulary + messaging.
+
+## Notes
+- Analytics: Microsoft Clarity is embedded in each page `<head>`.
+- Confidential investor page password: managed via encryption — ask the
+  maintainer to rotate (requires re-encrypting the payload).
+- Trademarks: SurfaceWare™ (U.S. registration pending), Hover OS, Living
+  Heritage™, Hover SR™, Hover Health™ — Hover Touch Technologies Inc. dba HoverVerse AI.
+- Placeholders remain for photography (`.ph-photo` / `.sol-visual` blocks) —
+  drop real images into `assets/` and swap them in.
 - To rebuild in Divi: follow the on-screen Section/Row/Module labels.
-
-## Still to do (placeholders)
-- Living Heritage cards use placeholder imagery — drop real photography into
-  `assets/` and swap the `.ph-photo` blocks in index.html.
-- Inner pages (SurfaceWare, Hover OS, Living Heritage, SurfaceWare Central)
-  not yet built.
-
-A dark-theme v1 of the homepage is kept at the project root:
-`Hoververse Home v1 (dark).html`.
