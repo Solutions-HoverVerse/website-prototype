@@ -18,19 +18,23 @@
 </head>
 <body>
 
-<header class="site-header is-stuck" data-divi="section" data-divi-label="Global Header">
-  <nav class="nav" data-divi="row" data-divi-label="Row · Menu">
-    <a class="brand" href="index.html" aria-label="HoverVerse home" data-divi="module" data-divi-label="Menu / Logo">
+<header class="site-header is-stuck">
+  <nav class="nav">
+    <a class="brand" href="index.html" aria-label="HoverVerse home">
       <img class="logo" src="assets/HV_Logomark_Horizontal_Dark.svg" alt="HoverVerse" />
     </a>
-    <div class="nav-links" data-divi="module" data-divi-label="Menu / Nav">
+    <div class="nav-links">
       <a href="index.html#surfaceware">SurfaceWare<span class="tm">™</span></a>
       <a href="index.html#hoveros">Hover OS</a>
       <a href="solutions.html">Solutions</a>
+      <a href="why-hoververse.html">Why HoverVerse</a>
+      <a href="about.html">About</a>
+      <a href="leadership.html">Leadership</a>
+      <a href="careers.html">Careers</a>
       <a href="investors.html">Investors</a>
     </div>
     <div class="nav-cta">
-      <a href="investors.html" class="btn btn--outline" data-divi="module" data-divi-label="Button">← Investor overview</a>
+      <a href="investors.html" class="btn btn--outline">← Investor overview</a>
       <button class="nav-toggle" aria-label="Open menu">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
       </button>
@@ -41,7 +45,7 @@
 <main>
 
 <!-- LOCK SCREEN -->
-<section class="lockscreen" id="lockscreen" data-divi="section" data-divi-label="Access Gate">
+<section class="lockscreen" id="lockscreen">
   <div class="lock-box">
     <span class="gate-lock" aria-hidden="true"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>
     <h1>Confidential investor materials</h1>
@@ -59,9 +63,9 @@
 <div id="confidential-content"></div>
 
 <!-- CTA / CONTACT (public) -->
-<section class="section cta-band" id="contact" data-divi="section" data-divi-label="CTA (Fullwidth)">
+<section class="section cta-band" id="contact">
   <img class="cta-glyph" src="assets/HV_Glyph_Light.png" alt="" aria-hidden="true" />
-  <div class="wrap" data-divi="row" data-divi-label="Row">
+  <div class="wrap">
     <p class="eyebrow reveal in" style="justify-content:center">Investor relations</p>
     <h2 class="h-2 reveal in">Questions on the materials?</h2>
     <p class="lead reveal in">We'll walk you through the model and open the data room under NDA.</p>
@@ -74,63 +78,15 @@
 
 </main>
 
-<footer class="footer" data-divi="section" data-divi-label="Global Footer">
+<footer class="footer">
   <div class="wrap">
-    <div class="footer-bot" data-divi="row" data-divi-label="Row · Bottom bar" style="border-top:0;padding-top:0">
-      <span>© <span id="year">2026</span> Hover Touch Technologies Inc. (operating as HoverVerse AI) · A Texas C-Corporation. Confidential — do not distribute. SurfaceWare™ is a trademark of Hover Touch Technologies Inc. dba HoverVerse AI, U.S. registration pending.</span>
+    <div class="footer-bot" style="border-top:0;padding-top:0">
+      <span>© <span id="year">2026</span> Hover Touch Technologies Inc. (operating as HoverVerse AI) · A Texas C-Corporation. Confidential — do not distribute. SurfaceWare™ is a trademark of HoverVerse AI Inc., U.S. registration pending.</span>
       <span class="distinct disclaimer">Not affiliated with Hoyoverse.</span>
     </div>
   </div>
 </footer>
 
-<script src="investors-confidential-payload.js"></script>
-<script>
-(function () {
-  "use strict";
-  var form = document.getElementById("lockForm");
-  var pwInput = document.getElementById("pw");
-  var err = document.getElementById("err");
-  var lock = document.getElementById("lockscreen");
-  var mount = document.getElementById("confidential-content");
-  var yr = document.getElementById("year"); if (yr) yr.textContent = new Date().getFullYear();
-
-  function b64ToBytes(b64) {
-    var bin = atob(b64), a = new Uint8Array(bin.length);
-    for (var i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i);
-    return a;
-  }
-  async function decrypt(password) {
-    if (!window.__HV_PAYLOAD) throw new Error("payload missing");
-    if (!window.crypto || !crypto.subtle) throw new Error("This browser blocks in-page decryption (needs a secure https context).");
-    var raw = b64ToBytes(window.__HV_PAYLOAD);
-    var salt = raw.slice(0, 16), iv = raw.slice(16, 28), ct = raw.slice(28);
-    var mat = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveKey"]);
-    var key = await crypto.subtle.deriveKey({ name: "PBKDF2", salt: salt, iterations: 150000, hash: "SHA-256" }, mat, { name: "AES-GCM", length: 256 }, false, ["decrypt"]);
-    var pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv: iv }, key, ct);
-    return new TextDecoder().decode(pt);
-  }
-  function reveal() {
-    Array.prototype.forEach.call(mount.querySelectorAll(".reveal"), function (el) { el.classList.add("in"); });
-  }
-  async function unlock(password, fromStore) {
-    try {
-      var htmlText = await decrypt(password);
-      mount.innerHTML = htmlText;
-      mount.classList.add("unlocked");
-      lock.style.display = "none";
-      reveal();
-      try { sessionStorage.setItem("hv_inv_pw", password); } catch (e) {}
-      window.scrollTo(0, 0);
-    } catch (e) {
-      if (fromStore) { try { sessionStorage.removeItem("hv_inv_pw"); } catch (x) {} return; }
-      err.textContent = /secure https/.test(e.message) ? e.message : "Incorrect password. Please try again.";
-      pwInput.value = ""; pwInput.focus();
-    }
-  }
-  form.addEventListener("submit", function (e) { e.preventDefault(); err.textContent = ""; unlock(pwInput.value); });
-  // Restore within the same browser session
-  try { var saved = sessionStorage.getItem("hv_inv_pw"); if (saved) unlock(saved, true); } catch (e) {}
-})();
-</script>
+<script src="app.js"></script>
 </body>
 </html>
