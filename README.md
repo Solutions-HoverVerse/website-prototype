@@ -7,7 +7,8 @@ Self-contained static site — no build step.
 Open `index.html` in a browser, or deploy the folder to any static/WordPress host.
 
 ## Pages
-- `index.html` ................. Homepage.
+- `index.html` ................. Homepage (outcomes-first: hero → Aim/Hold/Commit →
+                                 Missing Half → Solutions → Benefits → Platform).
 - `solutions.html` ............. Solutions overview + verticals (Living Heritage,
                                  Hover SR retail, Biosafety & cleanrooms, rehab)
                                  with the vertical-integration mapping matrix.
@@ -17,6 +18,11 @@ Open `index.html` in a browser, or deploy the folder to any static/WordPress hos
 - `investors-confidential.html`  Password-gated confidential materials
                                  (AES-encrypted; payload in the .js below).
 - `investors-confidential-payload.js` — encrypted confidential content blob.
+- `why-hoververse.html` ....... Physical AI differentiation + heads-up comparison.
+- `about.html` ................ Company narrative, who we serve, values, partners.
+- `leadership.html` ........... Exec team, board of directors, strategic advisory board.
+- `careers.html` .............. Hiring page (role list is ILLUSTRATIVE — replace
+                                 with live openings before launch).
 
 ## Shared
 - `styles.css` ................ All styles + design tokens (`:root` variables).
