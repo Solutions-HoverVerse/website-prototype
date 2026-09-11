@@ -558,6 +558,42 @@ a.hygiene-card:hover .card-go .arr { transform: translateX(4px); }
   border-top: 1px solid var(--dark-line); color: var(--faint); font-size: 13.5px; flex-wrap: wrap; }
 .footer-bot .distinct { color: var(--on-dark-mut); }
 .footer-bot .disclaimer { font-size: 11px; color: var(--faint); opacity: .7; }
+.footer-legal { display: flex; align-items: center; gap: 10px; }
+.footer-legal a { color: var(--on-dark-mut); transition: color .2s; }
+.footer-legal a:hover { color: var(--green-bright); }
+.footer-legal .dot { color: var(--dark-line); }
+
+/* ---------- Legal pages (Terms of Service / Privacy Policy) ---------- */
+.legal-content { max-width: 760px; }
+.legal-content .legal-meta {
+  font-family: var(--mono); font-size: 13px; letter-spacing: .04em; color: var(--faint);
+  margin: 0 0 44px; padding-bottom: 24px; border-bottom: 1px solid var(--line);
+}
+.legal-content h2 {
+  font-size: 23px; font-weight: 700; letter-spacing: -0.015em; line-height: 1.3;
+  color: var(--ink); margin: 52px 0 18px; scroll-margin-top: 110px;
+}
+.legal-content h2:first-of-type { margin-top: 0; }
+.legal-content .legal-num { color: var(--green-deep); }
+.legal-content p { margin: 0 0 20px; color: var(--slate-2); line-height: 1.75; font-size: 16.5px; }
+.legal-content ul { margin: 0 0 20px; padding-left: 24px; color: var(--slate-2); line-height: 1.75; font-size: 16.5px; display: grid; gap: 10px; }
+.legal-content li::marker { color: var(--green-deep); }
+.legal-content a { color: var(--green-deep); text-decoration: underline; text-underline-offset: 3px; }
+.legal-content a:hover { color: var(--green); }
+.legal-content strong { color: var(--ink); font-weight: 650; }
+.legal-placeholder-para {
+  background: color-mix(in oklab, var(--green) 8%, var(--white));
+  border: 1px dashed var(--green-line); border-radius: var(--r-md);
+  padding: 16px 18px !important; color: var(--slate-2) !important;
+}
+.legal-jump { display: flex; flex-wrap: wrap; gap: 10px 22px; margin: 0 0 46px; padding: 22px 24px;
+  background: var(--paper); border: 1px solid var(--line); border-radius: var(--r-lg); }
+.legal-jump a { font-size: 14px; color: var(--muted); }
+.legal-jump a:hover { color: var(--green-deep); }
+@media (max-width: 640px) {
+  .legal-content h2 { font-size: 20px; margin-top: 40px; }
+  .legal-content p, .legal-content ul { font-size: 16px; }
+}
 
 /* ---------- Reveal ---------- */
 .reveal { opacity: 0; transform: translateY(24px); transition: opacity .6s var(--ease), transform .6s var(--ease); }
