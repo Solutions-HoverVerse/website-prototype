@@ -23,7 +23,7 @@ Hard constraints carried through the whole system:
 | Layer | Name | Role |
 |-------|------|------|
 | 01 | **SurfaceWare™** | Computer Vision Engine — the UI layer that differentiates Hover OS from GUI-based operating systems |
-| 02 | **Hover OS** | Lightweight low-voltage edge operating system |
+| 02 | **Hover OS** | Lightweight edge operating system — runs across standard hardware, ARM and x86 alike |
 | 03 | **SurfaceWare Central** | Zero-trust enterprise fleet-management portal |
 
 ### Solution lines

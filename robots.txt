@@ -1,0 +1,5 @@
+User-agent: *
+Disallow: /investors-confidential.html
+Allow: /
+
+Sitemap: https://hoververse.ai/sitemap.xml

@@ -13,9 +13,60 @@
   /* ---------- Mobile nav ---------- */
   var toggle = document.querySelector(".nav-toggle");
   var links = document.querySelector(".nav-links");
-  if (toggle) toggle.addEventListener("click", function () { links.classList.toggle("open"); });
-  if (links) Array.prototype.forEach.call(links.querySelectorAll("a"), function (a) {
-    a.addEventListener("click", function () { links.classList.remove("open"); });
+  if (toggle && links) {
+    toggle.setAttribute("aria-expanded", "false");
+    toggle.addEventListener("click", function () {
+      var isOpen = links.classList.toggle("open");
+      toggle.setAttribute("aria-expanded", isOpen ? "true" : "false");
+      toggle.setAttribute("aria-label", isOpen ? "Close menu" : "Open menu");
+    });
+    Array.prototype.forEach.call(links.querySelectorAll("a"), function (a) {
+      a.addEventListener("click", function () {
+        links.classList.remove("open");
+        toggle.setAttribute("aria-expanded", "false");
+        toggle.setAttribute("aria-label", "Open menu");
+      });
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && links.classList.contains("open")) {
+        links.classList.remove("open");
+        toggle.setAttribute("aria-expanded", "false");
+        toggle.setAttribute("aria-label", "Open menu");
+        toggle.focus();
+      }
+    });
+  }
+
+  /* ---------- Nav dropdowns (Solutions, About) ---------- */
+  var dropItems = document.querySelectorAll(".nav-item.has-dropdown");
+  Array.prototype.forEach.call(dropItems, function (dropItem) {
+    var dropToggle = dropItem.querySelector(".nav-drop-toggle");
+    if (!dropToggle) return;
+    dropToggle.setAttribute("aria-expanded", "false");
+    dropToggle.addEventListener("click", function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      var willOpen = !dropItem.classList.contains("open");
+      Array.prototype.forEach.call(dropItems, function (other) {
+        if (other === dropItem) return;
+        other.classList.remove("open");
+        var otherToggle = other.querySelector(".nav-drop-toggle");
+        if (otherToggle) otherToggle.setAttribute("aria-expanded", "false");
+      });
+      dropItem.classList.toggle("open", willOpen);
+      dropToggle.setAttribute("aria-expanded", willOpen ? "true" : "false");
+    });
+  });
+  document.addEventListener("click", function (e) {
+    Array.prototype.forEach.call(dropItems, function (dropItem) {
+      if (dropItem.contains(e.target)) return;
+      dropItem.classList.remove("open");
+      var dropToggle = dropItem.querySelector(".nav-drop-toggle");
+      if (dropToggle) dropToggle.setAttribute("aria-expanded", "false");
+    });
+  });
+  if (toggle) toggle.addEventListener("click", function () {
+    Array.prototype.forEach.call(dropItems, function (dropItem) { dropItem.classList.remove("open"); });
   });
 
   /* ---------- Reveal ---------- */
