@@ -372,9 +372,17 @@ p { text-wrap: pretty; }
 .team-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
 .person { padding: 24px 22px; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--white); }
 .person .av { width: 52px; height: 52px; border-radius: 14px; display: grid; place-items: center; background: var(--green-soft); border: 1px solid var(--green-line); color: var(--green-deep); font-family: var(--mono); font-weight: 600; font-size: 18px; margin-bottom: 16px; }
-.person h4 { font-size: 18px; margin: 0 0 2px; letter-spacing: -0.01em; }
+.person h4 { font-size: 18px; margin: 0 0 2px; letter-spacing: -0.01em; display: flex; align-items: center; gap: 7px; }
 .person .role { font-family: var(--mono); font-size: 12px; color: var(--green-deep); text-transform: uppercase; letter-spacing: .06em; }
 .person p { margin: 10px 0 0; font-size: 13.5px; color: var(--muted); line-height: 1.5; }
+
+/* LinkedIn link — small inline icon appended to a name/title */
+.li-link { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; color: var(--faint); flex: none; transition: color .2s; }
+.li-link svg { width: 14px; height: 14px; display: block; }
+.li-link:hover { color: #0A66C2; }
+.phase h4 { display: flex; align-items: center; gap: 7px; }
+.phase .li-link { color: var(--on-dark-mut); }
+.stake .who .role { display: inline-flex; align-items: center; gap: 7px; }
 .bench { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 22px; }
 .bench span { font-size: 13.5px; color: var(--slate-2); background: var(--paper-2); border: 1px solid var(--line); border-radius: var(--r-pill); padding: 8px 16px; }
 .bench b { color: var(--ink); }
@@ -696,6 +704,12 @@ body.divi-on .divi-legend { display: block; }
   .btn--lg { padding: 0 18px; font-size: 15px; gap: 8px; }
   .gate-card { padding: 24px 16px; }
 }
+@media (max-width: 340px) {
+  /* The longest .btn--lg label on the site ("Enter with access password")
+     still overflows at the very narrowest real-world phones (320px) even
+     after the 400px tier's reduction — shrink once more for this tier. */
+  .btn--lg { padding: 0 11px; font-size: 12.5px; gap: 5px; }
+}
 
 /* Solutions dropdown row inside the mobile menu — one clean divider per
    item instead of a border under the link text alone. Placed last so it
@@ -704,5 +718,5 @@ body.divi-on .divi-legend { display: block; }
   .nav-links.open .nav-item.has-dropdown { border-bottom: 1px solid var(--line); width: 100%; }
   .nav-links.open .nav-drop-trigger { padding: 15px 0; }
   .nav-links.open .nav-drop-trigger a { padding: 0; border-bottom: 0; width: auto; }
-  .nav-links.open .nav-dropdown a { border-bottom: 0; padding: 11px 0; white-space: normal; }
+  .nav-links.open .nav-dropdown a { border-bottom: 0; padding: 11px 0; }
 }
