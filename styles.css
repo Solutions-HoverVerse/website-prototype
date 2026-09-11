@@ -376,13 +376,16 @@ p { text-wrap: pretty; }
 .person .role { font-family: var(--mono); font-size: 12px; color: var(--green-deep); text-transform: uppercase; letter-spacing: .06em; }
 .person p { margin: 10px 0 0; font-size: 13.5px; color: var(--muted); line-height: 1.5; }
 
-/* LinkedIn link — small inline icon appended to a name/title */
-.li-link { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; color: var(--faint); flex: none; transition: color .2s; }
-.li-link svg { width: 14px; height: 14px; display: block; }
-.li-link:hover { color: #0A66C2; }
-.phase h4 { display: flex; align-items: center; gap: 7px; }
-.phase .li-link { color: var(--on-dark-mut); }
-.stake .who .role { display: inline-flex; align-items: center; gap: 7px; }
+/* LinkedIn link — small inline icon appended to a person's name */
+.li-link { display: inline-flex; align-items: center; justify-content: center; width: 17px; height: 17px; color: #0A66C2; flex: none; vertical-align: middle; transition: transform .15s ease, color .15s ease, opacity .15s ease; border-radius: 3px; text-decoration: none; }
+.li-link svg { width: 15px; height: 15px; display: block; }
+.li-link:hover { color: #004182; transform: translateY(-1px) scale(1.08); }
+.phase h4 { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.band-dark .li-link,
+.phase .li-link { color: #0A66C2; }
+.band-dark .li-link:hover,
+.phase .li-link:hover { color: #38BDF8; transform: translateY(-1px) scale(1.08); }
+.stake .who .role { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 6px; }
 .bench { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 22px; }
 .bench span { font-size: 13.5px; color: var(--slate-2); background: var(--paper-2); border: 1px solid var(--line); border-radius: var(--r-pill); padding: 8px 16px; }
 .bench b { color: var(--ink); }
