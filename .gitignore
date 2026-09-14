@@ -1,0 +1,12 @@
+# Operating system files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+
+# IDE & Editor files
+.vscode/
+.idea/
+
+# Internal outputs & working artifacts
+Claude outputs/
+*.tmp

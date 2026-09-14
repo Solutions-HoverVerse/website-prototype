@@ -6,7 +6,14 @@
 <title>Hoververse | Physical AI &amp; Spatial Computing for the Built Environment</title>
 <meta name="description" content="Hoververse turns architecture into a gesture-based, touchless user interface — ambient computing and spatial AI for shared physical spaces." />
 <link rel="canonical" href="https://hoververse.ai/" />
-<link rel="icon" type="image/png" href="assets/HV_Glyph_Dark.png" />
+<link rel="preconnect" href="https://www.clarity.ms" />
+<link rel="dns-prefetch" href="https://www.clarity.ms" />
+<link rel="icon" href="assets/favicon/favicon.ico" sizes="32x32" />
+<link rel="icon" type="image/png" href="assets/favicon/favicon-32x32.png" sizes="32x32" />
+<link rel="icon" type="image/png" href="assets/favicon/favicon-16x16.png" sizes="16x16" />
+<link rel="apple-touch-icon" href="assets/favicon/apple-touch-icon.png" />
+<link rel="manifest" href="site.webmanifest" />
+<meta name="theme-color" content="#12A06A" />
 <link rel="stylesheet" href="styles.css" />
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="Hoververse" />
@@ -21,11 +28,71 @@
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
-  "@type": "Organization",
-  "name": "Hoververse",
-  "url": "https://hoververse.ai/",
-  "logo": "https://hoververse.ai/assets/HV_Glyph_Dark.png",
-  "description": "Hoververse builds Physical AI for the built environment — SurfaceWare™ deterministic computer vision and Hover OS turn architecture into a gesture-based, touchless user interface. Ambient computing and spatial AI for shared physical spaces."
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://hoververse.ai/#organization",
+      "name": "Hoververse",
+      "legalName": "Hover Touch Technologies Inc.",
+      "alternateName": ["Hoververse AI", "HoverVerse AI Canada Inc."],
+      "url": "https://hoververse.ai/",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://hoververse.ai/assets/HV_Glyph_Dark.png"
+      },
+      "description": "Hoververse builds Physical AI for the built environment — SurfaceWare™ deterministic computer vision and Hover OS turn architecture into a gesture-based, touchless user interface. Ambient computing and spatial AI for shared physical spaces.",
+      "sameAs": [
+        "https://www.linkedin.com/company/hover-touch"
+      ],
+      "address": [
+        {
+          "@type": "PostalAddress",
+          "streetAddress": "4516 N Bentwood Dr",
+          "addressLocality": "San Angelo",
+          "addressRegion": "TX",
+          "postalCode": "76904-8206",
+          "addressCountry": "US"
+        },
+        {
+          "@type": "PostalAddress",
+          "streetAddress": "20 Butterick Rd",
+          "addressLocality": "Etobicoke",
+          "addressRegion": "ON",
+          "addressCountry": "CA"
+        }
+      ],
+      "contactPoint": [
+        {
+          "@type": "ContactPoint",
+          "contactType": "sales",
+          "email": "solutions@hoververse.ai",
+          "areaServed": "Worldwide",
+          "availableLanguage": "English"
+        },
+        {
+          "@type": "ContactPoint",
+          "contactType": "investor relations",
+          "email": "invest@hoververse.ai",
+          "areaServed": "Worldwide",
+          "availableLanguage": "English"
+        },
+        {
+          "@type": "ContactPoint",
+          "contactType": "recruiting",
+          "email": "careers@hoververse.ai",
+          "areaServed": "Worldwide",
+          "availableLanguage": "English"
+        }
+      ]
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://hoververse.ai/#website",
+      "url": "https://hoververse.ai/",
+      "name": "Hoververse",
+      "publisher": { "@id": "https://hoververse.ai/#organization" }
+    }
+  ]
 }
 </script>
 <!-- Microsoft Clarity -->
@@ -126,7 +193,7 @@
 
       <!-- Museum projected-UI demo video (Divi Code/Video Module) -->
       <div class="field-stage">
-        <video class="field-video" autoplay muted loop playsinline preload="auto" poster="">
+        <video class="field-video" autoplay muted loop playsinline preload="metadata" poster="assets/video-poster.jpg">
           <source src="assets/Museum Video Map.mp4" type="video/mp4" />
         </video>
         <div class="field-caption">
@@ -494,7 +561,7 @@
      CTA — Divi: Section (Fullwidth) › Row › CTA module
      ============================================================ -->
 <section class="section cta-band" id="demo">
-  <img class="cta-glyph" src="assets/HV_Glyph_Light.png" alt="" aria-hidden="true" />
+  <img class="cta-glyph" src="assets/HV_Glyph_Light.png" alt="" aria-hidden="true" loading="lazy" decoding="async" />
   <div class="wrap">
     <p class="eyebrow reveal" style="justify-content:center">Request a demo</p>
     <h2 class="h-2 reveal">Bring SurfaceWare to your space.</h2>
@@ -516,7 +583,7 @@
     <div class="footer-top">
       <div>
         <a class="brand" href="index.html">
-          <img class="logo" src="assets/HV_Logomark_Horizontal_Light.svg" alt="Hoververse" />
+          <img class="logo" src="assets/HV_Logomark_Horizontal_Light.svg" alt="Hoververse" loading="lazy" decoding="async" />
         </a>
         <p class="blurb">Turning ordinary architectural surfaces into contact-free interactive experiences — deterministic, deviceless, and heads-up.</p>
       </div>
