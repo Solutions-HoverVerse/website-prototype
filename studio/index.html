@@ -599,26 +599,51 @@
 
     function toggleInspector() {
       inspectorActive = !inspectorActive;
-      document.getElementById('inspectorToggle').classList.toggle('active', inspectorActive);
+      const btn = document.getElementById('inspectorToggle');
+      btn.classList.toggle('active', inspectorActive);
+      btn.innerHTML = inspectorActive 
+        ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20M2 12h20"/></svg><span>Selecting... (Click element to lock)</span>`
+        : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20M2 12h20"/></svg><span>Point & Click Inspector</span>`;
+      
       const frame = document.getElementById('sandboxFrame');
       frame.contentWindow.postMessage({ type: 'HV_TOGGLE_INSPECTOR', enabled: inspectorActive }, '*');
     }
 
     // Handle messages from the iframe (visual point-and-click element selector)
     window.addEventListener('message', (e) => {
-      if (e.data && e.data.type === 'HV_ELEMENT_SELECTED') {
+      if (!e.data) return;
+      if (e.data.type === 'HV_ELEMENT_SELECTED') {
         selectedElementInfo = e.data.info;
+        inspectorActive = false; // Selecting function is now turned OFF!
+        
+        const btn = document.getElementById('inspectorToggle');
+        btn.classList.remove('active');
+        btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg><span>Locked: &lt;${selectedElementInfo.tag}&gt; (Click to re-select)</span>`;
+        btn.style.borderColor = 'var(--emerald)';
+        btn.style.color = '#2DD68C';
+
         const badge = document.getElementById('selectedBadge');
         const label = document.getElementById('selectedLabel');
-        label.innerText = `Selected: ${selectedElementInfo.tag} (${selectedElementInfo.text.slice(0, 30)}...)`;
+        const previewText = selectedElementInfo.text ? `"${selectedElementInfo.text.slice(0, 32)}..."` : (selectedElementInfo.id ? `#${selectedElementInfo.id}` : selectedElementInfo.className);
+        label.innerHTML = `🔒 <strong>Locked:</strong> &lt;${selectedElementInfo.tag}&gt; ${previewText}`;
         badge.style.display = 'flex';
         document.getElementById('promptInput').focus();
+      } else if (e.data.type === 'HV_INSPECTOR_CANCELLED') {
+        clearSelectedElement();
       }
     });
 
     function clearSelectedElement() {
       selectedElementInfo = null;
+      inspectorActive = false;
       document.getElementById('selectedBadge').style.display = 'none';
+      const btn = document.getElementById('inspectorToggle');
+      btn.classList.remove('active');
+      btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20M2 12h20"/></svg><span>Point & Click Inspector</span>`;
+      btn.style.borderColor = '';
+      btn.style.color = '';
+      const frame = document.getElementById('sandboxFrame');
+      frame.contentWindow.postMessage({ type: 'HV_CLEAR_SELECTION' }, '*');
     }
 
     function handleFileSelected(event) {

@@ -35,47 +35,111 @@ const INJECTED_INSPECTOR_SCRIPT = `
 <script>
   (function() {
     let inspectorActive = false;
+    let lockedEl = null;
     let hoveredEl = null;
 
     const overlay = document.createElement('div');
+    overlay.id = '__hv_inspector_overlay';
     overlay.style.position = 'fixed';
     overlay.style.pointerEvents = 'none';
-    overlay.style.border = '2px solid #12A06A';
-    overlay.style.background = 'rgba(18, 160, 106, 0.15)';
-    overlay.style.borderRadius = '4px';
+    overlay.style.border = '2px dashed #12A06A';
+    overlay.style.background = 'rgba(18, 160, 106, 0.12)';
+    overlay.style.borderRadius = '6px';
     overlay.style.zIndex = '999999';
     overlay.style.display = 'none';
-    overlay.style.transition = 'all 0.1s ease';
+    overlay.style.transition = 'all 0.08s ease';
+    overlay.style.boxSizing = 'border-box';
+
+    const badge = document.createElement('div');
+    badge.style.position = 'absolute';
+    badge.style.top = '-26px';
+    badge.style.left = '0';
+    badge.style.background = '#12A06A';
+    badge.style.color = '#FFFFFF';
+    badge.style.fontSize = '11px';
+    badge.style.fontWeight = '600';
+    badge.style.fontFamily = 'system-ui, sans-serif';
+    badge.style.padding = '2px 8px';
+    badge.style.borderRadius = '4px';
+    badge.style.whiteSpace = 'nowrap';
+    badge.style.boxShadow = '0 2px 8px rgba(0,0,0,0.3)';
+    badge.innerText = 'Click to Select';
+    overlay.appendChild(badge);
+
     document.body.appendChild(overlay);
 
+    function updateOverlayPos(el, isLocked) {
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      overlay.style.top = Math.max(0, r.top) + 'px';
+      overlay.style.left = Math.max(0, r.left) + 'px';
+      overlay.style.width = r.width + 'px';
+      overlay.style.height = r.height + 'px';
+      overlay.style.display = 'block';
+
+      if (isLocked) {
+        overlay.style.border = '2px solid #12A06A';
+        overlay.style.background = 'rgba(18, 160, 106, 0.22)';
+        overlay.style.boxShadow = '0 0 16px rgba(18, 160, 106, 0.45)';
+        badge.innerText = '🔒 Locked: <' + el.tagName.toLowerCase() + (el.id ? '#' + el.id : '') + '>';
+        badge.style.background = '#0D7A50';
+      } else {
+        overlay.style.border = '2px dashed #12A06A';
+        overlay.style.background = 'rgba(18, 160, 106, 0.12)';
+        overlay.style.boxShadow = 'none';
+        badge.innerText = 'Click to Select: <' + el.tagName.toLowerCase() + (el.id ? '#' + el.id : '') + '>';
+        badge.style.background = '#12A06A';
+      }
+    }
+
+    // Keep locked highlight positioned during scroll / resize
+    window.addEventListener('scroll', function() {
+      if (lockedEl) updateOverlayPos(lockedEl, true);
+    }, { passive: true });
+    window.addEventListener('resize', function() {
+      if (lockedEl) updateOverlayPos(lockedEl, true);
+    }, { passive: true });
+
     window.addEventListener('message', function(e) {
-      if (e.data && e.data.type === 'HV_TOGGLE_INSPECTOR') {
+      if (!e.data) return;
+      if (e.data.type === 'HV_TOGGLE_INSPECTOR') {
         inspectorActive = !!e.data.enabled;
-        if (!inspectorActive) {
+        if (inspectorActive) {
+          lockedEl = null; // Clear previous lock to allow re-selection
+        } else if (!lockedEl) {
           overlay.style.display = 'none';
           if (hoveredEl) hoveredEl.style.cursor = '';
         }
+      } else if (e.data.type === 'HV_CLEAR_SELECTION') {
+        lockedEl = null;
+        inspectorActive = false;
+        overlay.style.display = 'none';
+        if (hoveredEl) hoveredEl.style.cursor = '';
       }
     });
 
     document.addEventListener('mouseover', function(e) {
-      if (!inspectorActive) return;
+      if (!inspectorActive || lockedEl) return;
+      if (e.target === overlay || overlay.contains(e.target)) return;
       hoveredEl = e.target;
       hoveredEl.style.cursor = 'crosshair';
-      const r = hoveredEl.getBoundingClientRect();
-      overlay.style.top = r.top + 'px';
-      overlay.style.left = r.left + 'px';
-      overlay.style.width = r.width + 'px';
-      overlay.style.height = r.height + 'px';
-      overlay.style.display = 'block';
+      updateOverlayPos(hoveredEl, false);
     }, true);
 
     document.addEventListener('click', function(e) {
       if (!inspectorActive) return;
+      if (e.target === overlay || overlay.contains(e.target)) return;
+      
       e.preventDefault();
       e.stopPropagation();
 
       const el = e.target;
+      lockedEl = el;
+      inspectorActive = false; // Turn OFF selecting immediately on click!
+      if (hoveredEl) hoveredEl.style.cursor = '';
+
+      updateOverlayPos(lockedEl, true); // Lock highlight in place
+
       const info = {
         tag: el.tagName.toLowerCase(),
         id: el.id || '',
@@ -90,6 +154,16 @@ const INJECTED_INSPECTOR_SCRIPT = `
         info: info
       }, '*');
     }, true);
+
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && (inspectorActive || lockedEl)) {
+        lockedEl = null;
+        inspectorActive = false;
+        overlay.style.display = 'none';
+        if (hoveredEl) hoveredEl.style.cursor = '';
+        window.parent.postMessage({ type: 'HV_INSPECTOR_CANCELLED' }, '*');
+      }
+    });
   })();
 </script>
 `;
