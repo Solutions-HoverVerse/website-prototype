@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hoververse Executive Studio — Natural Language Web CMS</title>
+  <link rel="icon" type="image/png" href="/preview/assets/HV_Glyph_Light.png">
+  <style>
+    :root {
+      --bg: #0A0E13;
+      --bg-panel: #111720;
+      --bg-card: #161F2B;
+      --border: rgba(255, 255, 255, 0.1);
+      --border-focus: rgba(18, 160, 106, 0.5);
+      --emerald: #12A06A;
+      --emerald-glow: rgba(18, 160, 106, 0.25);
+      --emerald-dark: #0D7A50;
+      --text: #F7F9FB;
+      --text-muted: #8A97A6;
+      --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Top Navigation Header */
+    header.studio-header {
+      height: 60px;
+      background: var(--bg-panel);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      flex: none;
+      z-index: 100;
+    }
+
+    .brand-wrap {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .brand-wrap img { height: 24px; }
+    .studio-badge {
+      background: rgba(18, 160, 106, 0.15);
+      color: #2DD68C;
+      border: 1px solid rgba(18, 160, 106, 0.3);
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .header-controls {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .target-select {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 7px 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s;
+    }
+    .btn-secondary {
+      background: var(--bg-card);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover { background: #1C2736; }
+    .btn-primary {
+      background: var(--emerald);
+      color: #FFFFFF;
+      box-shadow: 0 4px 14px var(--emerald-glow);
+    }
+    .btn-primary:hover {
+      background: var(--emerald-dark);
+      transform: translateY(-1px);
+    }
+
+    /* Main Workspace Split Layout */
+    .workspace {
+      display: flex;
+      flex: 1;
+      height: calc(100vh - 60px);
+      overflow: hidden;
+    }
+
+    /* Left Sidebar: Executive Agent & Chat */
+    .chat-panel {
+      width: 440px;
+      background: var(--bg-panel);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      flex: none;
+    }
+
+    .chat-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .chat-header h2 { font-size: 15px; font-weight: 600; }
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: #2DD68C;
+    }
+    .pulse-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #2DD68C;
+      box-shadow: 0 0 8px #2DD68C;
+    }
+
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .message {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-width: 92%;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .message.agent {
+      align-self: flex-start;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 16px;
+    }
+    .message.user {
+      align-self: flex-end;
+      background: #17382B;
+      border: 1px solid rgba(18, 160, 106, 0.4);
+      border-radius: 12px;
+      padding: 12px 16px;
+      color: #FFFFFF;
+    }
+
+    .prompt-chips {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .chip {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 9px 12px;
+      font-size: 12px;
+      color: var(--text-muted);
+      cursor: pointer;
+      text-align: left;
+      transition: all 0.2s;
+    }
+    .chip:hover {
+      border-color: var(--emerald);
+      color: var(--text);
+      background: rgba(18, 160, 106, 0.08);
+    }
+
+    /* Chat Input Area */
+    .chat-input-area {
+      padding: 16px 20px;
+      border-top: 1px solid var(--border);
+      background: var(--bg-panel);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .selected-tag-badge {
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(18, 160, 106, 0.15);
+      border: 1px solid var(--emerald);
+      color: #2DD68C;
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 6px;
+    }
+    .selected-tag-badge span.close { cursor: pointer; font-weight: bold; }
+
+    .attachment-preview {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+    }
+    .attachment-preview img {
+      width: 32px;
+      height: 32px;
+      object-fit: cover;
+      border-radius: 4px;
+    }
+
+    .input-box {
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+      transition: border-color 0.2s;
+    }
+    .input-box:focus-within {
+      border-color: var(--emerald);
+      box-shadow: 0 0 0 1px var(--emerald);
+    }
+    textarea#promptInput {
+      background: transparent;
+      border: none;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 14px;
+      resize: none;
+      outline: none;
+      min-height: 48px;
+      max-height: 120px;
+    }
+    .input-actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 8px;
+    }
+    .attach-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+    }
+    .attach-btn:hover { color: var(--text); }
+    input#fileInput { display: none; }
+
+    /* Right Preview Canvas */
+    .preview-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: #06090D;
+    }
+
+    .preview-toolbar {
+      height: 48px;
+      background: var(--bg-panel);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+    }
+
+    .page-tabs {
+      display: flex;
+      gap: 6px;
+    }
+    .page-tab {
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text-muted);
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .page-tab.active {
+      background: var(--bg-card);
+      border-color: var(--border);
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    .viewport-controls {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .vp-btn {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 5px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .vp-btn.active {
+      background: rgba(18, 160, 106, 0.15);
+      border-color: var(--emerald);
+      color: #2DD68C;
+    }
+
+    .inspector-toggle {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .inspector-toggle.active {
+      background: rgba(18, 160, 106, 0.2);
+      border-color: var(--emerald);
+      color: #2DD68C;
+      font-weight: 600;
+    }
+
+    .frame-container {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      overflow: hidden;
+      background: radial-gradient(circle at center, #0F1620 0%, #06090D 100%);
+    }
+
+    iframe#sandboxFrame {
+      width: 100%;
+      height: 100%;
+      background: #FFFFFF;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+      transition: width 0.3s ease;
+    }
+
+    /* Modal Diff & Publish Drawer */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(8px);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-content {
+      width: 720px;
+      max-height: 80vh;
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.8);
+    }
+    .modal-header {
+      padding: 18px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .modal-body {
+      padding: 20px 24px;
+      overflow-y: auto;
+      font-size: 14px;
+    }
+    pre.diff-code {
+      background: #090D12;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px;
+      font-family: var(--mono);
+      font-size: 12px;
+      white-space: pre-wrap;
+      color: #A3B8CC;
+      max-height: 350px;
+      overflow-y: auto;
+    }
+    .modal-footer {
+      padding: 16px 24px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 12px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Studio Topbar -->
+  <header class="studio-header">
+    <div class="brand-wrap">
+      <img src="/preview/assets/HV_Logomark_Horizontal_Dark.svg" alt="Hoververse" />
+      <span class="studio-badge">Executive Studio · NL CMS</span>
+    </div>
+
+    <div class="header-controls">
+      <select class="target-select" id="deployTarget">
+        <option value="cloudflare">Deploy Target: Cloudflare Pages / Static (Recommended)</option>
+        <option value="wix">Deploy Target: Wix Studio (Velo Custom Elements)</option>
+        <option value="all">Deploy Target: Both (Sync Cloudflare & Wix)</option>
+      </select>
+      <button class="btn btn-secondary" id="revertBtn">Revert Sandbox</button>
+      <button class="btn btn-primary" id="openPublishBtn">Review Diff & Publish</button>
+    </div>
+  </header>
+
+  <!-- Main Workspace -->
+  <main class="workspace">
+    <!-- Left: Agent Chat -->
+    <aside class="chat-panel">
+      <div class="chat-header">
+        <h2>Executive AI Assistant</h2>
+        <div class="status-indicator">
+          <div class="pulse-dot"></div>
+          <span>Sandbox Ready</span>
+        </div>
+      </div>
+
+      <div class="chat-messages" id="chatMessages">
+        <div class="message agent">
+          <strong>Welcome to Hoververse Executive Studio.</strong>
+          <p>I know the entire Hoververse site structure, assets, and design tokens. Tell me what you'd like to update, paste an image, or click any element in the live preview on the right.</p>
+          <div class="prompt-chips">
+            <div class="chip" onclick="applySamplePrompt(this.innerText)">
+              🖼️ "Change the picture on the platform page adjacent to the deterministic by design section to this one"
+            </div>
+            <div class="chip" onclick="applySamplePrompt(this.innerText)">
+              ✍️ "Change the wording on the home page at the very top to 'Touchless Interface. The New Enterprise Standard.'"
+            </div>
+            <div class="chip" onclick="applySamplePrompt(this.innerText)">
+              🎯 "Update the main CTA button on the Home page to say 'Schedule an Executive Demo'"
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="chat-input-area">
+        <div class="selected-tag-badge" id="selectedBadge">
+          <span id="selectedLabel">Selected: .pipe-stage</span>
+          <span class="close" onclick="clearSelectedElement()">&times;</span>
+        </div>
+
+        <div class="attachment-preview" id="attachmentPreview">
+          <img id="attachmentThumb" src="" alt="preview" />
+          <span id="attachmentName" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">image.jpg</span>
+          <span style="cursor:pointer;color:#DC2626;" onclick="clearAttachment()">&times;</span>
+        </div>
+
+        <div class="input-box">
+          <textarea id="promptInput" placeholder="Describe the change you want to make in plain English..."></textarea>
+          <div class="input-actions">
+            <button class="attach-btn" onclick="document.getElementById('fileInput').click()">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+              <span>Attach Image / File</span>
+            </button>
+            <input type="file" id="fileInput" accept="image/*,.txt,.md,.pdf" onchange="handleFileSelected(event)" />
+            <button class="btn btn-primary" id="sendBtn" onclick="submitEdit()">Apply Change</button>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Right: Sandbox Live Preview -->
+    <section class="preview-panel">
+      <div class="preview-toolbar">
+        <div class="page-tabs" id="pageTabs">
+          <button class="page-tab active" data-url="/preview/index.html" onclick="switchPage(this, '/preview/index.html')">Home</button>
+          <button class="page-tab" data-url="/preview/platform.html" onclick="switchPage(this, '/preview/platform.html')">Platform</button>
+          <button class="page-tab" data-url="/preview/about.html" onclick="switchPage(this, '/preview/about.html')">About</button>
+          <button class="page-tab" data-url="/preview/careers.html" onclick="switchPage(this, '/preview/careers.html')">Careers</button>
+          <button class="page-tab" data-url="/preview/solutions.html" onclick="switchPage(this, '/preview/solutions.html')">Solutions</button>
+          <button class="page-tab" data-url="/preview/resources.html" onclick="switchPage(this, '/preview/resources.html')">Resources</button>
+        </div>
+
+        <div class="viewport-controls">
+          <button class="inspector-toggle" id="inspectorToggle" onclick="toggleInspector()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20M2 12h20"/></svg>
+            <span>Point & Click Inspector</span>
+          </button>
+          <button class="vp-btn active" onclick="setViewport('100%')">Desktop</button>
+          <button class="vp-btn" onclick="setViewport('768px')">Tablet</button>
+          <button class="vp-btn" onclick="setViewport('375px')">Mobile</button>
+          <button class="vp-btn" onclick="reloadPreview()" title="Refresh">↻</button>
+        </div>
+      </div>
+
+      <div class="frame-container">
+        <iframe id="sandboxFrame" src="/preview/index.html"></iframe>
+      </div>
+    </section>
+  </main>
+
+  <!-- Diff & Publish Modal -->
+  <div class="modal-overlay" id="publishModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Review Sandbox Changes Before Publishing</h3>
+        <span style="cursor:pointer;font-size:20px;" onclick="closeModal()">&times;</span>
+      </div>
+      <div class="modal-body">
+        <p style="margin-bottom:12px;color:var(--text-muted);">
+          The following uncommitted changes were made in your live sandbox. Once approved, they will be pushed directly to the selected deployment pipeline.
+        </p>
+        <pre class="diff-code" id="modalDiffOutput">Loading diff...</pre>
+        <div id="publishLogs" style="margin-top:14px;font-size:12px;color:#2DD68C;display:none;"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-primary" id="confirmPublishBtn" onclick="executePublish()">Approve & Publish to Live Site</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentAttachment = null;
+    let selectedElementInfo = null;
+    let inspectorActive = false;
+
+    function applySamplePrompt(text) {
+      document.getElementById('promptInput').value = text.replace(/^[^\w]+/, '');
+      document.getElementById('promptInput').focus();
+    }
+
+    function switchPage(el, url) {
+      document.querySelectorAll('.page-tab').forEach(t => t.classList.remove('active'));
+      el.classList.add('active');
+      const frame = document.getElementById('sandboxFrame');
+      frame.src = url;
+    }
+
+    function setViewport(width) {
+      document.querySelectorAll('.vp-btn').forEach(b => b.classList.remove('active'));
+      event.target.classList.add('active');
+      document.getElementById('sandboxFrame').style.width = width;
+    }
+
+    function reloadPreview() {
+      const frame = document.getElementById('sandboxFrame');
+      frame.src = frame.src;
+    }
+
+    function toggleInspector() {
+      inspectorActive = !inspectorActive;
+      document.getElementById('inspectorToggle').classList.toggle('active', inspectorActive);
+      const frame = document.getElementById('sandboxFrame');
+      frame.contentWindow.postMessage({ type: 'HV_TOGGLE_INSPECTOR', enabled: inspectorActive }, '*');
+    }
+
+    // Handle messages from the iframe (visual point-and-click element selector)
+    window.addEventListener('message', (e) => {
+      if (e.data && e.data.type === 'HV_ELEMENT_SELECTED') {
+        selectedElementInfo = e.data.info;
+        const badge = document.getElementById('selectedBadge');
+        const label = document.getElementById('selectedLabel');
+        label.innerText = `Selected: ${selectedElementInfo.tag} (${selectedElementInfo.text.slice(0, 30)}...)`;
+        badge.style.display = 'flex';
+        document.getElementById('promptInput').focus();
+      }
+    });
+
+    function clearSelectedElement() {
+      selectedElementInfo = null;
+      document.getElementById('selectedBadge').style.display = 'none';
+    }
+
+    function handleFileSelected(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        currentAttachment = {
+          name: file.name,
+          dataUrl: e.target.result,
+          textContent: file.type.startsWith('text') ? e.target.result : ''
+        };
+        document.getElementById('attachmentPreview').style.display = 'flex';
+        document.getElementById('attachmentName').innerText = file.name;
+        if (file.type.startsWith('image/')) {
+          document.getElementById('attachmentThumb').src = e.target.result;
+          document.getElementById('attachmentThumb').style.display = 'block';
+        } else {
+          document.getElementById('attachmentThumb').style.display = 'none';
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function clearAttachment() {
+      currentAttachment = null;
+      document.getElementById('attachmentPreview').style.display = 'none';
+      document.getElementById('fileInput').value = '';
+    }
+
+    async function submitEdit() {
+      const promptInput = document.getElementById('promptInput');
+      const prompt = promptInput.value.trim();
+      if (!prompt && !currentAttachment) return;
+
+      const activeTab = document.querySelector('.page-tab.active');
+      const targetPageId = activeTab ? activeTab.innerText.toLowerCase() : 'home';
+
+      addMessage('user', prompt + (currentAttachment ? ` [Attached: ${currentAttachment.name}]` : ''));
+      promptInput.value = '';
+
+      const loadingMsg = addMessage('agent', 'Analyzing request, inspecting DOM, and updating sandbox...');
+
+      try {
+        const res = await fetch('/api/edit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prompt,
+            targetPageId,
+            selectedElement: selectedElementInfo,
+            attachment: currentAttachment
+          })
+        });
+        const data = await res.json();
+        loadingMsg.remove();
+
+        if (data.success) {
+          addMessage('agent', `✓ <strong>Change applied:</strong> ${data.summary}`);
+          reloadPreview();
+          if (data.pageUrl) {
+            const matchingTab = Array.from(document.querySelectorAll('.page-tab')).find(t => t.dataset.url.includes(data.targetPage));
+            if (matchingTab) switchPage(matchingTab, `/preview/${data.targetPage}`);
+          }
+        } else {
+          addMessage('agent', `⚠️ ${data.summary || 'Could not complete requested change.'}`);
+        }
+      } catch (err) {
+        loadingMsg.remove();
+        addMessage('agent', `❌ Error applying edit: ${err.message}`);
+      }
+
+      clearAttachment();
+      clearSelectedElement();
+    }
+
+    function addMessage(sender, html) {
+      const container = document.getElementById('chatMessages');
+      const msg = document.createElement('div');
+      msg.className = `message ${sender}`;
+      msg.innerHTML = html;
+      container.appendChild(msg);
+      container.scrollTop = container.scrollHeight;
+      return msg;
+    }
+
+    // Modal & Publishing
+    document.getElementById('openPublishBtn').addEventListener('click', async () => {
+      document.getElementById('publishModal').style.display = 'flex';
+      const diffPre = document.getElementById('modalDiffOutput');
+      diffPre.innerText = 'Calculating git diff...';
+      try {
+        const res = await fetch('/api/diff');
+        const data = await res.json();
+        diffPre.innerText = data.diff || 'No uncommitted changes in sandbox.';
+      } catch (e) {
+        diffPre.innerText = 'Failed to load diff.';
+      }
+    });
+
+    function closeModal() {
+      document.getElementById('publishModal').style.display = 'none';
+      document.getElementById('publishLogs').style.display = 'none';
+    }
+
+    async function executePublish() {
+      const btn = document.getElementById('confirmPublishBtn');
+      const logsEl = document.getElementById('publishLogs');
+      btn.innerText = 'Publishing...';
+      btn.disabled = true;
+      logsEl.style.display = 'block';
+      logsEl.innerText = 'Committing changes to pipeline...';
+
+      const target = document.getElementById('deployTarget').value;
+      try {
+        const res = await fetch('/api/publish', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ target })
+        });
+        const data = await res.json();
+        logsEl.innerHTML = data.logs.map(l => `<div>• ${l}</div>`).join('');
+        btn.innerText = 'Published Successfully!';
+        setTimeout(() => {
+          btn.innerText = 'Approve & Publish to Live Site';
+          btn.disabled = false;
+        }, 3000);
+      } catch (err) {
+        logsEl.innerText = `Error: ${err.message}`;
+        btn.disabled = false;
+      }
+    }
+
+    document.getElementById('revertBtn').addEventListener('click', async () => {
+      if (!confirm('Discard all uncommitted sandbox changes and revert to pristine git status?')) return;
+      try {
+        const res = await fetch('/api/revert', { method: 'POST' });
+        const data = await res.json();
+        alert(data.message || 'Reverted successfully.');
+        reloadPreview();
+      } catch (e) {
+        alert('Revert failed: ' + e.message);
+      }
+    });
+  </script>
+</body>
+</html>

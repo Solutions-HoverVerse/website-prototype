@@ -1,0 +1,173 @@
+{
+  "siteName": "Hoververse",
+  "defaultDomain": "hoververse.ai",
+  "brandTokens": {
+    "primaryColor": "#12A06A",
+    "primaryHover": "#0D7A50",
+    "darkBg": "#0E141B",
+    "paperBg": "#F7F9FB",
+    "textInk": "#10151B"
+  },
+  "pages": [
+    {
+      "id": "home",
+      "file": "index.html",
+      "title": "Home - Contact-Free Spatial Computing",
+      "url": "/",
+      "sections": [
+        {
+          "id": "hero",
+          "name": "Hero Section",
+          "heading": "Touch the air. Control the room.",
+          "kicker": "Contact-free spatial computing",
+          "lead": "Hoververse turns ordinary architectural surfaces into interactive, touchless computing environments.",
+          "selector": "section.hero",
+          "visualElements": [
+            { "type": "canvas", "id": "hero-canvas", "description": "Interactive 3D particle canvas" }
+          ]
+        },
+        {
+          "id": "strip",
+          "name": "Heads-Up Strip / Metrics",
+          "heading": "Deterministic Sensing · Zero Cloud Lag · Industrial Noise Immunity",
+          "selector": ".strip"
+        },
+        {
+          "id": "problem",
+          "name": "The Problem with Touch Screens",
+          "heading": "Why touch is failing public spaces",
+          "selector": "section.problem"
+        },
+        {
+          "id": "demo",
+          "name": "Request a Demo Form",
+          "heading": "See it on your own surfaces",
+          "selector": "section#demo"
+        }
+      ]
+    },
+    {
+      "id": "platform",
+      "file": "platform.html",
+      "title": "Platform - SurfaceWare, Hover OS & SurfaceWare Central",
+      "url": "/platform.html",
+      "sections": [
+        {
+          "id": "hero",
+          "name": "Platform Hero",
+          "heading": "The SurfaceWare Platform",
+          "kicker": "Platform Architecture",
+          "selector": "section.hero"
+        },
+        {
+          "id": "architecture",
+          "name": "Three-Tier Architecture",
+          "heading": "Three layers. One coherent stack.",
+          "selector": "section#architecture"
+        },
+        {
+          "id": "deterministic",
+          "name": "Deterministic by Design",
+          "heading": "Deterministic by design — never probabilistic guesswork.",
+          "kicker": "SurfaceWare™ — the SUI's input logic",
+          "lead": "SurfaceWare™ is the human-computer interaction logic at the core of the SurfaceWare UI (SUI) — sensing open-air intent and turning it into standard interface events.",
+          "selector": ".pipe-grid",
+          "visualElements": [
+            {
+              "type": "canvas_or_image",
+              "selector": ".pipe-stage",
+              "childSelector": "#pipeline-canvas",
+              "description": "Visual stage container adjacent to the 'Deterministic by Design' heading. Contains the pipeline interactive canvas or replacement image graphic."
+            }
+          ]
+        },
+        {
+          "id": "runtime",
+          "name": "Hover OS Headless Runtime",
+          "heading": "Hover OS — the headless runtime with nothing to learn.",
+          "selector": "section#hoveros"
+        },
+        {
+          "id": "portal",
+          "name": "SurfaceWare Central Fleet Management",
+          "heading": "SurfaceWare Central — deploy, tune and monitor at fleet scale.",
+          "selector": "section#portal"
+        }
+      ]
+    },
+    {
+      "id": "about",
+      "file": "about.html",
+      "title": "About - Leadership & Vision",
+      "url": "/about.html",
+      "sections": [
+        {
+          "id": "hero",
+          "name": "About Hero",
+          "heading": "Inventing the post-touch interface.",
+          "selector": "section.hero"
+        },
+        {
+          "id": "leadership",
+          "name": "Executive Leadership",
+          "heading": "Built by pioneers in deterministic CV and enterprise software.",
+          "selector": "section#leadership"
+        },
+        {
+          "id": "investors",
+          "name": "Investor Relations",
+          "heading": "Backing the future of physical interface.",
+          "selector": "section#investors"
+        }
+      ]
+    },
+    {
+      "id": "careers",
+      "file": "careers.html",
+      "title": "Careers - Open Roles",
+      "url": "/careers.html",
+      "sections": [
+        {
+          "id": "hero",
+          "name": "Careers Hero",
+          "heading": "Build a category, not a feature.",
+          "selector": "section.hero"
+        },
+        {
+          "id": "open-roles",
+          "name": "Open Roles Listing",
+          "heading": "Current Openings",
+          "selector": "section#open-roles"
+        }
+      ]
+    },
+    {
+      "id": "solutions",
+      "file": "solutions.html",
+      "title": "Solutions Overview",
+      "url": "/solutions.html",
+      "sections": [
+        {
+          "id": "hero",
+          "name": "Solutions Hero",
+          "heading": "Engineered for high-consequence environments.",
+          "selector": "section.hero"
+        }
+      ]
+    },
+    {
+      "id": "resources",
+      "file": "resources.html",
+      "title": "Resources & Whitepapers",
+      "url": "/resources.html",
+      "sections": [
+        {
+          "id": "whitepapers",
+          "name": "White Papers & Thesis",
+          "heading": "Market Evolution Thesis",
+          "selector": "section#whitepapers"
+        }
+      ]
+    }
+  ]
+}
