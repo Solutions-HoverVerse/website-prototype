@@ -259,6 +259,39 @@
       font-weight: 600;
     }
 
+    .resize-toolbar {
+      display: none;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding: 6px 10px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 11px;
+    }
+    .resize-pill {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .resize-pill:hover {
+      border-color: var(--emerald);
+      color: var(--text);
+    }
+
+    button#undoBtn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      border-color: var(--border);
+      color: var(--text-muted);
+    }
+
     .attachment-preview {
       display: none;
       align-items: center;
@@ -500,6 +533,10 @@
         <option value="wix">Deploy Target: Wix Studio (Velo Custom Elements)</option>
         <option value="all">Deploy Target: Both (Sync Cloudflare & Wix)</option>
       </select>
+      <button class="btn btn-secondary" id="undoBtn" onclick="executeUndo()" title="Undo the most recent sandbox change" disabled>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px;"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+        <span>Undo Last Change</span>
+      </button>
       <button class="btn btn-secondary" id="revertBtn">Revert Sandbox</button>
       <button class="btn btn-primary" id="openPublishBtn">Review Diff & Publish</button>
     </div>
@@ -539,6 +576,16 @@
         <div class="selected-tag-badge" id="selectedBadge">
           <span id="selectedLabel">Selected: .pipe-stage</span>
           <span class="close" onclick="clearSelectedElement()">&times;</span>
+        </div>
+
+        <!-- Resize & Crop Presets Toolbar -->
+        <div class="resize-toolbar" id="resizeToolbar">
+          <span style="font-size:11px;color:var(--text-muted);font-weight:600;">Resize & Crop:</span>
+          <button type="button" class="resize-pill" onclick="quickResize({ width: '100%', maxHeight: '480px' })">100% Wide</button>
+          <button type="button" class="resize-pill" onclick="quickResize({ width: '75%', maxHeight: '400px' })">75%</button>
+          <button type="button" class="resize-pill" onclick="quickResize({ width: '50%', maxHeight: '320px' })">50%</button>
+          <button type="button" class="resize-pill" onclick="quickResize({ maxHeight: '260px' })">Crop Compact</button>
+          <button type="button" class="resize-pill" onclick="quickResize({ maxHeight: '540px' })">Tall View</button>
         </div>
 
         <!-- Layout Action Selector Bar -->
@@ -707,6 +754,9 @@
         label.innerHTML = `🔒 <strong>Locked:</strong> &lt;${selectedElementInfo.tag}&gt; ${previewText}`;
         badge.style.display = 'flex';
 
+        // Show resize toolbar when element is locked
+        document.getElementById('resizeToolbar').style.display = 'flex';
+
         // Auto-select intuitive layout pill based on element tag
         if (['img', 'video', 'canvas'].includes(selectedElementInfo.tag)) {
           selectLayoutAction('replace');
@@ -715,15 +765,43 @@
         }
 
         document.getElementById('promptInput').focus();
+      } else if (e.data.type === 'HV_ELEMENT_RESIZED') {
+        // Element was resized or cropped live in the preview iframe
+        const activeTab = document.querySelector('.page-tab.active');
+        const targetPageId = activeTab ? activeTab.innerText.toLowerCase() : 'home';
+        try {
+          const res = await fetch('/api/resize', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              targetPageId,
+              selectedElement: e.data.info,
+              styles: e.data.styles
+            })
+          });
+          const data = await res.json();
+          if (data.success) {
+            updateUndoButton(true);
+            addMessage('agent', `✓ <strong>Live Resized:</strong> ${data.summary}`);
+          }
+        } catch (err) {
+          console.error('Resize error:', err);
+        }
       } else if (e.data.type === 'HV_INSPECTOR_CANCELLED') {
         clearSelectedElement();
       }
     });
 
+    function quickResize(styles) {
+      const frame = document.getElementById('sandboxFrame');
+      frame.contentWindow.postMessage({ type: 'HV_APPLY_STYLE_PRESET', styles }, '*');
+    }
+
     function clearSelectedElement() {
       selectedElementInfo = null;
       inspectorActive = false;
       document.getElementById('selectedBadge').style.display = 'none';
+      document.getElementById('resizeToolbar').style.display = 'none';
       const btn = document.getElementById('inspectorToggle');
       btn.classList.remove('active');
       btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20M2 12h20"/></svg><span>Point & Click Inspector</span>`;
@@ -839,7 +917,41 @@
           processUploadedFile(e.clipboardData.files[0]);
         }
       });
+
+      // Check if undo is available on startup
+      fetch('/api/can-undo')
+        .then(r => r.json())
+        .then(d => updateUndoButton(d.canUndo))
+        .catch(() => {});
     });
+
+    async function executeUndo() {
+      const btn = document.getElementById('undoBtn');
+      if (btn) btn.disabled = true;
+      try {
+        const res = await fetch('/api/undo', { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+          addMessage('agent', `↶ <strong>Undone:</strong> ${data.summary}`);
+          reloadPreview();
+          updateUndoButton(data.canUndo);
+        } else {
+          addMessage('agent', `⚠️ ${data.message || 'No more changes to undo.'}`);
+          updateUndoButton(false);
+        }
+      } catch (e) {
+        addMessage('agent', `❌ Undo error: ${e.message}`);
+        updateUndoButton(true);
+      }
+    }
+
+    function updateUndoButton(canUndo) {
+      const btn = document.getElementById('undoBtn');
+      if (btn) btn.disabled = !canUndo;
+    }
+
+    const undoBtnEl = document.getElementById('undoBtn');
+    if (undoBtnEl) undoBtnEl.addEventListener('click', executeUndo);
 
     async function submitEdit() {
       const promptInput = document.getElementById('promptInput');
@@ -871,6 +983,7 @@
         loadingMsg.remove();
 
         if (data.success) {
+          updateUndoButton(true);
           addMessage('agent', `✓ <strong>Change applied:</strong> ${data.summary}`);
           reloadPreview();
           if (data.pageUrl) {
@@ -951,6 +1064,7 @@
       try {
         const res = await fetch('/api/revert', { method: 'POST' });
         const data = await res.json();
+        updateUndoButton(false);
         alert(data.message || 'Reverted successfully.');
         reloadPreview();
       } catch (e) {

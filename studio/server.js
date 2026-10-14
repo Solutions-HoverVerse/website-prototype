@@ -73,6 +73,129 @@ const INJECTED_INSPECTOR_SCRIPT = `
     badge.innerText = 'Click to Select';
     overlay.appendChild(badge);
 
+    // 8 Interactive Resize / Crop Handles
+    const handles = {};
+    const handleDefs = [
+      { id: 'nw', cursor: 'nwse-resize', style: 'top:-7px;left:-7px;width:14px;height:14px;border-radius:3px;' },
+      { id: 'ne', cursor: 'nesw-resize', style: 'top:-7px;right:-7px;width:14px;height:14px;border-radius:3px;' },
+      { id: 'se', cursor: 'nwse-resize', style: 'bottom:-7px;right:-7px;width:14px;height:14px;border-radius:3px;' },
+      { id: 'sw', cursor: 'nesw-resize', style: 'bottom:-7px;left:-7px;width:14px;height:14px;border-radius:3px;' },
+      { id: 'n',  cursor: 'ns-resize',   style: 'top:-7px;left:calc(50% - 14px);width:28px;height:10px;border-radius:4px;' },
+      { id: 's',  cursor: 'ns-resize',   style: 'bottom:-7px;left:calc(50% - 14px);width:28px;height:10px;border-radius:4px;' },
+      { id: 'w',  cursor: 'ew-resize',   style: 'top:calc(50% - 14px);left:-7px;width:10px;height:28px;border-radius:4px;' },
+      { id: 'e',  cursor: 'ew-resize',   style: 'top:calc(50% - 14px);right:-7px;width:10px;height:28px;border-radius:4px;' }
+    ];
+
+    let isDragging = false;
+    let dragDir = '';
+    let startX = 0, startY = 0;
+    let startW = 0, startH = 0;
+    let lastW = 0, lastH = 0;
+
+    function initDrag(e) {
+      if (!lockedEl) return;
+      e.preventDefault();
+      e.stopPropagation();
+
+      isDragging = true;
+      dragDir = e.target.dataset.dir;
+      startX = e.clientX;
+      startY = e.clientY;
+
+      const rect = lockedEl.getBoundingClientRect();
+      startW = rect.width;
+      startH = rect.height;
+      lastW = startW;
+      lastH = startH;
+
+      document.body.style.userSelect = 'none';
+
+      window.addEventListener('mousemove', onDragMove, true);
+      window.addEventListener('mouseup', onDragEnd, true);
+    }
+
+    function onDragMove(e) {
+      if (!isDragging || !lockedEl) return;
+      e.preventDefault();
+      e.stopPropagation();
+
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+
+      let newW = startW;
+      let newH = startH;
+
+      if (dragDir.includes('e')) newW = Math.max(60, startW + dx);
+      if (dragDir.includes('w')) newW = Math.max(60, startW - dx);
+      if (dragDir.includes('s')) newH = Math.max(30, startH + dy);
+      if (dragDir.includes('n')) newH = Math.max(30, startH - dy);
+
+      lastW = Math.round(newW);
+      lastH = Math.round(newH);
+
+      lockedEl.style.width = lastW + 'px';
+      lockedEl.style.maxWidth = 'none';
+
+      const tag = lockedEl.tagName.toLowerCase();
+      if (['img', 'video', 'canvas', 'figure'].includes(tag) || dragDir.includes('n') || dragDir.includes('s')) {
+        lockedEl.style.height = lastH + 'px';
+        lockedEl.style.maxHeight = lastH + 'px';
+        if (['img', 'video'].includes(tag)) {
+          lockedEl.style.objectFit = 'cover';
+        } else {
+          lockedEl.style.overflow = 'hidden';
+        }
+      }
+
+      updateOverlayPos(lockedEl, true);
+      badge.innerText = '↔ ' + lastW + 'px × ↕ ' + lastH + 'px (Live Resize / Crop)';
+    }
+
+    function onDragEnd(e) {
+      if (!isDragging) return;
+      isDragging = false;
+      document.body.style.userSelect = '';
+
+      window.removeEventListener('mousemove', onDragMove, true);
+      window.removeEventListener('mouseup', onDragEnd, true);
+
+      if (!lockedEl) return;
+      const tag = lockedEl.tagName.toLowerCase();
+      badge.innerText = '🔒 Locked: <' + tag + '> · ' + lastW + 'px × ' + lastH + 'px';
+
+      window.parent.postMessage({
+        type: 'HV_ELEMENT_RESIZED',
+        info: {
+          tag: tag,
+          id: lockedEl.id || '',
+          className: typeof lockedEl.className === 'string' ? lockedEl.className : '',
+          src: lockedEl.getAttribute('src') || lockedEl.src || '',
+          text: (lockedEl.innerText || lockedEl.textContent || '').trim().slice(0, 120),
+          firstLine: (lockedEl.innerText || '').split('\\n')[0].trim().slice(0, 80),
+          outerOpening: lockedEl.outerHTML ? (lockedEl.outerHTML.split('>')[0] + '>') : ''
+        },
+        styles: {
+          width: lockedEl.style.width,
+          height: lockedEl.style.height || (lastH + 'px'),
+          maxHeight: lockedEl.style.maxHeight || (lastH + 'px'),
+          objectFit: lockedEl.style.objectFit || 'cover',
+          overflow: lockedEl.style.overflow || ''
+        }
+      }, '*');
+    }
+
+    handleDefs.forEach(def => {
+      const h = document.createElement('div');
+      h.className = '__hv_resize_handle';
+      h.dataset.dir = def.id;
+      h.style.cssText = 'position:absolute;background:#FFFFFF;border:2px solid #12A06A;box-shadow:0 2px 6px rgba(0,0,0,0.45);z-index:1000000;display:none;box-sizing:border-box;pointer-events:auto;' + def.style;
+      h.style.cursor = def.cursor;
+      overlay.appendChild(h);
+      handles[def.id] = h;
+
+      h.addEventListener('mousedown', initDrag);
+    });
+
     document.body.appendChild(overlay);
 
     function updateOverlayPos(el, isLocked) {
@@ -85,17 +208,21 @@ const INJECTED_INSPECTOR_SCRIPT = `
       overlay.style.display = 'block';
 
       if (isLocked) {
+        overlay.style.pointerEvents = 'none'; // Keep overlay clicks transparent while handles have pointer-events:auto
         overlay.style.border = '2px solid #12A06A';
-        overlay.style.background = 'rgba(18, 160, 106, 0.22)';
+        overlay.style.background = 'rgba(18, 160, 106, 0.18)';
         overlay.style.boxShadow = '0 0 16px rgba(18, 160, 106, 0.45)';
-        badge.innerText = '🔒 Locked: <' + el.tagName.toLowerCase() + (el.id ? '#' + el.id : '') + '>';
+        badge.innerText = '🔒 Locked: <' + el.tagName.toLowerCase() + (el.id ? '#' + el.id : '') + '> · Drag corner or side handles';
         badge.style.background = '#0D7A50';
+        for (const k in handles) handles[k].style.display = 'block';
       } else {
+        overlay.style.pointerEvents = 'none';
         overlay.style.border = '2px dashed #12A06A';
         overlay.style.background = 'rgba(18, 160, 106, 0.12)';
         overlay.style.boxShadow = 'none';
         badge.innerText = 'Click to Select: <' + el.tagName.toLowerCase() + (el.id ? '#' + el.id : '') + '>';
         badge.style.background = '#12A06A';
+        for (const k in handles) handles[k].style.display = 'none';
       }
     }
 
@@ -113,15 +240,45 @@ const INJECTED_INSPECTOR_SCRIPT = `
         inspectorActive = !!e.data.enabled;
         if (inspectorActive) {
           lockedEl = null; // Clear previous lock to allow re-selection
+          for (const k in handles) handles[k].style.display = 'none';
         } else if (!lockedEl) {
           overlay.style.display = 'none';
+          for (const k in handles) handles[k].style.display = 'none';
           if (hoveredEl) hoveredEl.style.cursor = '';
         }
       } else if (e.data.type === 'HV_CLEAR_SELECTION') {
         lockedEl = null;
         inspectorActive = false;
         overlay.style.display = 'none';
+        for (const k in handles) handles[k].style.display = 'none';
         if (hoveredEl) hoveredEl.style.cursor = '';
+      } else if (e.data.type === 'HV_APPLY_STYLE_PRESET') {
+        if (!lockedEl) return;
+        const styles = e.data.styles || {};
+        for (const [k, v] of Object.entries(styles)) {
+          lockedEl.style[k] = v;
+        }
+        updateOverlayPos(lockedEl, true);
+        const rect = lockedEl.getBoundingClientRect();
+        window.parent.postMessage({
+          type: 'HV_ELEMENT_RESIZED',
+          info: {
+            tag: lockedEl.tagName.toLowerCase(),
+            id: lockedEl.id || '',
+            className: typeof lockedEl.className === 'string' ? lockedEl.className : '',
+            src: lockedEl.getAttribute('src') || lockedEl.src || '',
+            text: (lockedEl.innerText || lockedEl.textContent || '').trim().slice(0, 120),
+            firstLine: (lockedEl.innerText || '').split('\\n')[0].trim().slice(0, 80),
+            outerOpening: lockedEl.outerHTML ? (lockedEl.outerHTML.split('>')[0] + '>') : ''
+          },
+          styles: {
+            width: lockedEl.style.width,
+            height: lockedEl.style.height || (Math.round(rect.height) + 'px'),
+            maxHeight: lockedEl.style.maxHeight || (Math.round(rect.height) + 'px'),
+            objectFit: lockedEl.style.objectFit || 'cover',
+            overflow: lockedEl.style.overflow || ''
+          }
+        }, '*');
       }
     });
 
@@ -308,6 +465,40 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify({ success: false, summary: err.message }));
       }
     });
+    return;
+  }
+
+  // 3b. Undo Last Change Endpoint
+  if (pathname === '/api/undo' && req.method === 'POST') {
+    const result = agentEngine.undoLastChange();
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(result));
+    return;
+  }
+
+  // 3c. Resize & Crop Element Endpoint
+  if (pathname === '/api/resize' && req.method === 'POST') {
+    const chunks = [];
+    req.on('data', chunk => chunks.push(chunk));
+    req.on('end', async () => {
+      try {
+        const bodyStr = Buffer.concat(chunks).toString('utf-8');
+        const payload = JSON.parse(bodyStr);
+        const result = await agentEngine.processElementResize(payload);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(result));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, summary: err.message }));
+      }
+    });
+    return;
+  }
+
+  // 3d. Check if undo is available
+  if (pathname === '/api/can-undo' && req.method === 'GET') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ canUndo: agentEngine.canUndo() }));
     return;
   }
 

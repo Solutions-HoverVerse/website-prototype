@@ -29,6 +29,43 @@ function loadManifest() {
   }
 }
 
+const undoStack = []; // array of { file, beforeHtml, afterHtml, summary, timestamp }
+
+function pushUndoSnapshot(file, beforeHtml, afterHtml, summary) {
+  undoStack.push({
+    file,
+    beforeHtml,
+    afterHtml,
+    summary,
+    timestamp: Date.now()
+  });
+  if (undoStack.length > 50) undoStack.shift();
+}
+
+function undoLastChange() {
+  if (undoStack.length === 0) {
+    return { success: false, message: 'No more changes to undo.', canUndo: false };
+  }
+  const last = undoStack.pop();
+  const filePath = path.join(ROOT_DIR, last.file);
+  try {
+    fs.writeFileSync(filePath, last.beforeHtml, 'utf-8');
+    return {
+      success: true,
+      summary: `Undid: ${last.summary}`,
+      file: last.file,
+      canUndo: undoStack.length > 0,
+      diff: getUncommittedDiff()
+    };
+  } catch (err) {
+    return { success: false, error: err.message, canUndo: undoStack.length > 0 };
+  }
+}
+
+function canUndo() {
+  return undoStack.length > 0;
+}
+
 function escapeRegExp(string) {
   return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -208,6 +245,102 @@ function expandElementBounds(html, index, tagHint) {
 }
 
 /**
+ * Update inline styles of an element in HTML source code
+ */
+function updateElementInlineStyles(html, elInfo, newStyles) {
+  const bounds = findElementRange(html, elInfo);
+  if (!bounds) return null;
+
+  const targetBlock = html.slice(bounds.start, bounds.end);
+  const tagOpenEnd = targetBlock.indexOf('>');
+  if (tagOpenEnd === -1) return null;
+
+  const openingTag = targetBlock.slice(0, tagOpenEnd + 1);
+
+  // Parse existing style attribute or create new one
+  const styleMatch = openingTag.match(/style=["']([^"']*)["']/i);
+  let styleObj = {};
+  if (styleMatch) {
+    const rawDeclarations = styleMatch[1].split(';');
+    for (const decl of rawDeclarations) {
+      const colonIdx = decl.indexOf(':');
+      if (colonIdx !== -1) {
+        const prop = decl.slice(0, colonIdx).trim().toLowerCase();
+        const val = decl.slice(colonIdx + 1).trim();
+        if (prop && val) styleObj[prop] = val;
+      }
+    }
+  }
+
+  // Merge new styles (convert camelCase if needed, e.g. maxHeight -> max-height)
+  for (const [key, val] of Object.entries(newStyles)) {
+    if (!val) continue;
+    const cssProp = key.replace(/([A-Z])/g, '-$1').toLowerCase();
+    styleObj[cssProp] = val;
+  }
+
+  // Format style string
+  const newStyleStr = Object.entries(styleObj)
+    .map(([p, v]) => `${p}:${v}`)
+    .join(';');
+
+  let newOpeningTag = '';
+  if (styleMatch) {
+    newOpeningTag = openingTag.replace(styleMatch[0], `style="${newStyleStr}"`);
+  } else {
+    // Insert style attribute right before closing > of opening tag
+    newOpeningTag = openingTag.slice(0, -1) + ` style="${newStyleStr}">`;
+  }
+
+  const newBlock = newOpeningTag + targetBlock.slice(tagOpenEnd + 1);
+  const updatedHtml = html.slice(0, bounds.start) + newBlock + html.slice(bounds.end);
+
+  return {
+    updatedHtml,
+    tagName: bounds.tagName,
+    appliedStyles: newStyleStr
+  };
+}
+
+/**
+ * Persist visual element resize, crop, or style change
+ */
+async function processElementResize({ targetPageId, selectedElement, styles }) {
+  const manifest = loadManifest();
+  let targetPage = null;
+  if (targetPageId) {
+    targetPage = manifest.pages.find(p => p.id === targetPageId || p.file === targetPageId);
+  }
+  if (!targetPage) targetPage = manifest.pages.find(p => p.id === 'home');
+
+  const targetFilePath = path.join(ROOT_DIR, targetPage.file);
+  if (!fs.existsSync(targetFilePath)) {
+    throw new Error(`Target file ${targetPage.file} does not exist.`);
+  }
+
+  const originalHtml = fs.readFileSync(targetFilePath, 'utf-8');
+  const result = updateElementInlineStyles(originalHtml, selectedElement, styles);
+  if (!result) {
+    return { success: false, summary: 'Could not locate element to resize in HTML.', canUndo: canUndo() };
+  }
+
+  const dimStr = [styles.width ? `w:${styles.width}` : '', styles.height || styles.maxHeight ? `h:${styles.height || styles.maxHeight}` : ''].filter(Boolean).join(' × ');
+  const summary = `Resized <${result.tagName}> on ${targetPage.file} (${dimStr || 'custom styles'}).`;
+
+  pushUndoSnapshot(targetPage.file, originalHtml, result.updatedHtml, summary);
+  fs.writeFileSync(targetFilePath, result.updatedHtml, 'utf-8');
+
+  return {
+    success: true,
+    summary,
+    targetPage: targetPage.file,
+    pageUrl: targetPage.url,
+    canUndo: true,
+    diff: getUncommittedDiff()
+  };
+}
+
+/**
  * Handle executive natural language edit & DOM rearrangement
  */
 async function processExecutiveEdit({ prompt = '', targetPageId, selectedElement, actionType = 'auto', attachment, assetPath }) {
@@ -234,6 +367,7 @@ async function processExecutiveEdit({ prompt = '', targetPageId, selectedElement
   }
 
   let htmlContent = fs.readFileSync(targetFilePath, 'utf-8');
+  const originalContent = htmlContent;
   let summary = '';
   let modified = false;
 
@@ -432,6 +566,7 @@ async function processExecutiveEdit({ prompt = '', targetPageId, selectedElement
 
   // 9. Save Changes
   if (modified) {
+    pushUndoSnapshot(targetPage.file, originalContent, htmlContent, summary);
     fs.writeFileSync(targetFilePath, htmlContent, 'utf-8');
   } else {
     summary = `Could not automatically position the new media or locate the text. Please click on the target section in the preview to lock it, select the layout action (Beside, Below, Above, or Replace), and apply.`;
@@ -446,7 +581,8 @@ async function processExecutiveEdit({ prompt = '', targetPageId, selectedElement
     pageUrl: targetPage.url,
     diff: gitDiff,
     savedAsset: savedAssetPath,
-    isVideo
+    isVideo,
+    canUndo: canUndo()
   };
 }
 
@@ -466,10 +602,11 @@ function getUncommittedDiff() {
  */
 function revertSandbox() {
   try {
+    undoStack.length = 0;
     execSync('git checkout -- *.html styles.css', { cwd: ROOT_DIR });
-    return { success: true, message: 'All website sandbox pages have been reverted to pristine git state.' };
+    return { success: true, message: 'All website sandbox pages have been reverted to pristine git state.', canUndo: false };
   } catch (e) {
-    return { success: false, error: e.message };
+    return { success: false, error: e.message, canUndo: false };
   }
 }
 
@@ -515,6 +652,9 @@ async function publishChanges({ target, commitMessage }) {
 module.exports = {
   saveUploadedAsset,
   processExecutiveEdit,
+  processElementResize,
+  undoLastChange,
+  canUndo,
   getUncommittedDiff,
   revertSandbox,
   publishChanges,
