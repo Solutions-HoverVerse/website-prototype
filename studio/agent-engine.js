@@ -203,8 +203,17 @@ function findElementRange(html, elInfo) {
 }
 
 function expandElementBounds(html, index, tagHint) {
-  let openIdx = html.lastIndexOf('<', index);
-  if (openIdx === -1) openIdx = index;
+  let openIdx = index;
+  while (openIdx >= 0) {
+    const candidate = html.lastIndexOf('<', openIdx);
+    if (candidate === -1) break;
+    if (html[candidate + 1] !== '/' && html[candidate + 1] !== '!') {
+      openIdx = candidate;
+      break;
+    }
+    openIdx = candidate - 1;
+  }
+  if (openIdx < 0) openIdx = index;
 
   const tagMatch = html.slice(openIdx).match(/^<([a-zA-Z0-9-]+)/);
   const tagName = (tagMatch ? tagMatch[1] : (tagHint || 'div')).toLowerCase();
@@ -274,9 +283,12 @@ function updateElementInlineStyles(html, elInfo, newStyles) {
 
   // Merge new styles (convert camelCase if needed, e.g. maxHeight -> max-height)
   for (const [key, val] of Object.entries(newStyles)) {
-    if (!val) continue;
     const cssProp = key.replace(/([A-Z])/g, '-$1').toLowerCase();
-    styleObj[cssProp] = val;
+    if (val === '' || val === null || val === undefined) {
+      delete styleObj[cssProp];
+    } else {
+      styleObj[cssProp] = val;
+    }
   }
 
   // Format style string
@@ -324,8 +336,14 @@ async function processElementResize({ targetPageId, selectedElement, styles }) {
     return { success: false, summary: 'Could not locate element to resize in HTML.', canUndo: canUndo() };
   }
 
-  const dimStr = [styles.width ? `w:${styles.width}` : '', styles.height || styles.maxHeight ? `h:${styles.height || styles.maxHeight}` : ''].filter(Boolean).join(' × ');
-  const summary = `Resized <${result.tagName}> on ${targetPage.file} (${dimStr || 'custom styles'}).`;
+  let desc = '';
+  if (styles.fontSize) {
+    desc = `font-size: ${styles.fontSize}${styles.width ? ` · w: ${styles.width}` : ''}`;
+  } else {
+    const dimStr = [styles.width ? `w:${styles.width}` : '', styles.height || styles.maxHeight ? `h:${styles.height || styles.maxHeight}` : ''].filter(Boolean).join(' × ');
+    desc = dimStr || 'custom styles';
+  }
+  const summary = `Resized <${result.tagName}> on ${targetPage.file} (${desc}).`;
 
   pushUndoSnapshot(targetPage.file, originalHtml, result.updatedHtml, summary);
   fs.writeFileSync(targetFilePath, result.updatedHtml, 'utf-8');

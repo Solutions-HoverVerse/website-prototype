@@ -767,7 +767,27 @@
         badge.style.display = 'flex';
 
         // Show resize toolbar when element is locked
-        document.getElementById('resizeToolbar').style.display = 'flex';
+        const resizeToolbar = document.getElementById('resizeToolbar');
+        if (selectedElementInfo.isText) {
+          resizeToolbar.innerHTML = `
+            <span style="font-size:11px;color:var(--text-muted);font-weight:600;">Text Scaling:</span>
+            <button type="button" class="resize-pill" onclick="quickResize({ fontSizeMultiplier: 1.25 })">A+ Larger (+25%)</button>
+            <button type="button" class="resize-pill" onclick="quickResize({ fontSizeMultiplier: 0.8 })">A- Smaller (-20%)</button>
+            <button type="button" class="resize-pill" onclick="quickResize({ width: '100%' })">100% Wide</button>
+            <button type="button" class="resize-pill" onclick="quickResize({ width: '75%' })">75% Wide</button>
+            <button type="button" class="resize-pill" onclick="quickResize({ width: '50%' })">50% Wide</button>
+          `;
+        } else {
+          resizeToolbar.innerHTML = `
+            <span style="font-size:11px;color:var(--text-muted);font-weight:600;">Media Resize & Crop:</span>
+            <button type="button" class="resize-pill" onclick="quickResize({ width: '100%', maxHeight: '480px' })">100% Wide</button>
+            <button type="button" class="resize-pill" onclick="quickResize({ width: '75%', maxHeight: '400px' })">75%</button>
+            <button type="button" class="resize-pill" onclick="quickResize({ width: '50%', maxHeight: '320px' })">50%</button>
+            <button type="button" class="resize-pill" onclick="quickResize({ maxHeight: '260px' })">Crop Compact</button>
+            <button type="button" class="resize-pill" onclick="quickResize({ maxHeight: '540px' })">Tall View</button>
+          `;
+        }
+        resizeToolbar.style.display = 'flex';
 
         // Auto-select intuitive layout pill based on element tag
         if (['img', 'video', 'canvas'].includes(selectedElementInfo.tag)) {

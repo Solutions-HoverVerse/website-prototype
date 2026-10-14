@@ -73,6 +73,34 @@ const INJECTED_INSPECTOR_SCRIPT = `
     badge.innerText = 'Click to Select';
     overlay.appendChild(badge);
 
+    function isTextBox(el) {
+      if (!el) return false;
+      const tag = el.tagName.toLowerCase();
+      if (['img', 'video', 'canvas', 'figure', 'picture', 'iframe'].includes(tag)) {
+        return false;
+      }
+      if (['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'span', 'a', 'li', 'blockquote', 'button', 'label', 'strong', 'em', 'cite', 'b', 'i', 'small'].includes(tag)) {
+        return true;
+      }
+      const hasMedia = el.querySelector('img, video, canvas, iframe');
+      const textLen = (el.innerText || el.textContent || '').trim().length;
+      return !hasMedia && textLen > 0;
+    }
+
+    const TYPO_SCALE = [10, 11, 12, 13, 14, 15, 16, 17, 18, 20, 22, 24, 26, 28, 30, 32, 36, 40, 44, 48, 52, 56, 64, 72, 80, 92, 104, 120, 140];
+    function snapToTypoScale(size) {
+      let closest = TYPO_SCALE[0];
+      let minDiff = Math.abs(size - closest);
+      for (let i = 1; i < TYPO_SCALE.length; i++) {
+        const diff = Math.abs(size - TYPO_SCALE[i]);
+        if (diff < minDiff) {
+          minDiff = diff;
+          closest = TYPO_SCALE[i];
+        }
+      }
+      return closest;
+    }
+
     // 8 Interactive Resize / Crop Handles
     const handles = {};
     const handleDefs = [
@@ -91,6 +119,9 @@ const INJECTED_INSPECTOR_SCRIPT = `
     let startX = 0, startY = 0;
     let startW = 0, startH = 0;
     let lastW = 0, lastH = 0;
+    let startFontSize = 16;
+    let startLineHeightRatio = 1.35;
+    let isCurrentText = false;
 
     function initDrag(e) {
       if (!lockedEl) return;
@@ -107,6 +138,14 @@ const INJECTED_INSPECTOR_SCRIPT = `
       startH = rect.height;
       lastW = startW;
       lastH = startH;
+
+      isCurrentText = isTextBox(lockedEl);
+      if (isCurrentText) {
+        const cs = window.getComputedStyle(lockedEl);
+        startFontSize = parseFloat(cs.fontSize) || 16;
+        const lh = parseFloat(cs.lineHeight);
+        startLineHeightRatio = (!isNaN(lh) && lh > 0) ? (lh / startFontSize) : 1.35;
+      }
 
       document.body.style.userSelect = 'none';
 
@@ -127,8 +166,8 @@ const INJECTED_INSPECTOR_SCRIPT = `
 
       if (dragDir.includes('e')) newW = Math.max(60, startW + dx);
       if (dragDir.includes('w')) newW = Math.max(60, startW - dx);
-      if (dragDir.includes('s')) newH = Math.max(30, startH + dy);
-      if (dragDir.includes('n')) newH = Math.max(30, startH - dy);
+      if (dragDir.includes('s')) newH = Math.max(20, startH + dy);
+      if (dragDir.includes('n')) newH = Math.max(20, startH - dy);
 
       lastW = Math.round(newW);
       lastH = Math.round(newH);
@@ -136,19 +175,38 @@ const INJECTED_INSPECTOR_SCRIPT = `
       lockedEl.style.width = lastW + 'px';
       lockedEl.style.maxWidth = 'none';
 
-      const tag = lockedEl.tagName.toLowerCase();
-      if (['img', 'video', 'canvas', 'figure'].includes(tag) || dragDir.includes('n') || dragDir.includes('s')) {
-        lockedEl.style.height = lastH + 'px';
-        lockedEl.style.maxHeight = lastH + 'px';
-        if (['img', 'video'].includes(tag)) {
-          lockedEl.style.objectFit = 'cover';
-        } else {
-          lockedEl.style.overflow = 'hidden';
-        }
-      }
+      if (isCurrentText) {
+        // Text Box Scaling: scale font size to nearest typo scale that corresponds with new size
+        const ratioW = newW / Math.max(1, startW);
+        const ratioH = newH / Math.max(1, startH);
+        const scale = ((ratioW + ratioH) / 2);
+        const rawFontSize = startFontSize * scale;
+        const snappedSize = snapToTypoScale(Math.max(10, Math.min(140, rawFontSize)));
 
-      updateOverlayPos(lockedEl, true);
-      badge.innerText = '↔ ' + lastW + 'px × ↕ ' + lastH + 'px (Live Resize / Crop)';
+        lockedEl.style.fontSize = snappedSize + 'px';
+        lockedEl.style.lineHeight = (startLineHeightRatio <= 1.2 ? '1.15' : (startLineHeightRatio <= 1.35 ? '1.25' : '1.4'));
+        lockedEl.style.height = 'auto';
+        lockedEl.style.maxHeight = 'none';
+        lockedEl.style.overflow = 'visible';
+
+        updateOverlayPos(lockedEl, true);
+        badge.innerText = '↔ ' + lastW + 'px · Font: ' + snappedSize + 'px (Scaled to Box)';
+      } else {
+        // Media Resizing & Cropping
+        const tag = lockedEl.tagName.toLowerCase();
+        if (['img', 'video', 'canvas', 'figure'].includes(tag) || dragDir.includes('n') || dragDir.includes('s')) {
+          lockedEl.style.height = lastH + 'px';
+          lockedEl.style.maxHeight = lastH + 'px';
+          if (['img', 'video'].includes(tag)) {
+            lockedEl.style.objectFit = 'cover';
+          } else {
+            lockedEl.style.overflow = 'hidden';
+          }
+        }
+
+        updateOverlayPos(lockedEl, true);
+        badge.innerText = '↔ ' + lastW + 'px × ↕ ' + lastH + 'px (Live Resize / Crop)';
+      }
     }
 
     function onDragEnd(e) {
@@ -161,7 +219,26 @@ const INJECTED_INSPECTOR_SCRIPT = `
 
       if (!lockedEl) return;
       const tag = lockedEl.tagName.toLowerCase();
-      badge.innerText = '🔒 Locked: <' + tag + '> · ' + lastW + 'px × ' + lastH + 'px';
+      const isText = isTextBox(lockedEl);
+
+      badge.innerText = isText 
+        ? ('🔒 Locked: <' + tag + '> · Font: ' + lockedEl.style.fontSize)
+        : ('🔒 Locked: <' + tag + '> · ' + lastW + 'px × ' + lastH + 'px');
+
+      const styles = isText ? {
+        width: lockedEl.style.width,
+        fontSize: lockedEl.style.fontSize,
+        lineHeight: lockedEl.style.lineHeight || '1.3',
+        height: 'auto',
+        maxHeight: 'none',
+        overflow: 'visible'
+      } : {
+        width: lockedEl.style.width,
+        height: lockedEl.style.height || (lastH + 'px'),
+        maxHeight: lockedEl.style.maxHeight || (lastH + 'px'),
+        objectFit: lockedEl.style.objectFit || 'cover',
+        overflow: lockedEl.style.overflow || ''
+      };
 
       window.parent.postMessage({
         type: 'HV_ELEMENT_RESIZED',
@@ -172,15 +249,10 @@ const INJECTED_INSPECTOR_SCRIPT = `
           src: lockedEl.getAttribute('src') || lockedEl.src || '',
           text: (lockedEl.innerText || lockedEl.textContent || '').trim().slice(0, 120),
           firstLine: (lockedEl.innerText || '').split('\\n')[0].trim().slice(0, 80),
-          outerOpening: lockedEl.outerHTML ? (lockedEl.outerHTML.split('>')[0] + '>') : ''
+          outerOpening: lockedEl.outerHTML ? (lockedEl.outerHTML.split('>')[0] + '>') : '',
+          isText: isText
         },
-        styles: {
-          width: lockedEl.style.width,
-          height: lockedEl.style.height || (lastH + 'px'),
-          maxHeight: lockedEl.style.maxHeight || (lastH + 'px'),
-          objectFit: lockedEl.style.objectFit || 'cover',
-          overflow: lockedEl.style.overflow || ''
-        }
+        styles: styles
       }, '*');
     }
 
@@ -212,9 +284,25 @@ const INJECTED_INSPECTOR_SCRIPT = `
         overlay.style.border = '2px solid #12A06A';
         overlay.style.background = 'rgba(18, 160, 106, 0.18)';
         overlay.style.boxShadow = '0 0 16px rgba(18, 160, 106, 0.45)';
-        badge.innerText = '🔒 Locked: <' + el.tagName.toLowerCase() + (el.id ? '#' + el.id : '') + '> · Drag corner or side handles';
-        badge.style.background = '#0D7A50';
-        for (const k in handles) handles[k].style.display = 'block';
+        
+        const isText = isTextBox(el);
+        if (isText) {
+          badge.innerText = '🔒 Locked: <' + el.tagName.toLowerCase() + (el.id ? '#' + el.id : '') + '> · Corner drag scales font size';
+          badge.style.background = '#0D7A50';
+          // Enable corners, DISABLE crop bars on text boxes
+          handles.nw.style.display = 'block';
+          handles.ne.style.display = 'block';
+          handles.se.style.display = 'block';
+          handles.sw.style.display = 'block';
+          handles.n.style.display = 'none';
+          handles.s.style.display = 'none';
+          handles.w.style.display = 'none';
+          handles.e.style.display = 'none';
+        } else {
+          badge.innerText = '🔒 Locked: <' + el.tagName.toLowerCase() + (el.id ? '#' + el.id : '') + '> · Drag corners to scale, sides to crop';
+          badge.style.background = '#0D7A50';
+          for (const k in handles) handles[k].style.display = 'block';
+        }
       } else {
         overlay.style.pointerEvents = 'none';
         overlay.style.border = '2px dashed #12A06A';
@@ -255,8 +343,18 @@ const INJECTED_INSPECTOR_SCRIPT = `
       } else if (e.data.type === 'HV_APPLY_STYLE_PRESET') {
         if (!lockedEl) return;
         const styles = e.data.styles || {};
+        const isText = isTextBox(lockedEl);
         for (const [k, v] of Object.entries(styles)) {
-          lockedEl.style[k] = v;
+          if (k === 'fontSizeMultiplier') {
+            const cs = window.getComputedStyle(lockedEl);
+            const currentSize = parseFloat(cs.fontSize) || 16;
+            const newSize = snapToTypoScale(currentSize * v);
+            lockedEl.style.fontSize = newSize + 'px';
+            lockedEl.style.height = 'auto';
+            lockedEl.style.maxHeight = 'none';
+          } else {
+            lockedEl.style[k] = v;
+          }
         }
         updateOverlayPos(lockedEl, true);
         const rect = lockedEl.getBoundingClientRect();
@@ -269,9 +367,17 @@ const INJECTED_INSPECTOR_SCRIPT = `
             src: lockedEl.getAttribute('src') || lockedEl.src || '',
             text: (lockedEl.innerText || lockedEl.textContent || '').trim().slice(0, 120),
             firstLine: (lockedEl.innerText || '').split('\\n')[0].trim().slice(0, 80),
-            outerOpening: lockedEl.outerHTML ? (lockedEl.outerHTML.split('>')[0] + '>') : ''
+            outerOpening: lockedEl.outerHTML ? (lockedEl.outerHTML.split('>')[0] + '>') : '',
+            isText: isText
           },
-          styles: {
+          styles: isText ? {
+            width: lockedEl.style.width,
+            fontSize: lockedEl.style.fontSize,
+            lineHeight: lockedEl.style.lineHeight || '1.3',
+            height: 'auto',
+            maxHeight: 'none',
+            overflow: 'visible'
+          } : {
             width: lockedEl.style.width,
             height: lockedEl.style.height || (Math.round(rect.height) + 'px'),
             maxHeight: lockedEl.style.maxHeight || (Math.round(rect.height) + 'px'),
@@ -307,6 +413,7 @@ const INJECTED_INSPECTOR_SCRIPT = `
       const rawText = (el.innerText || el.textContent || '').trim();
       const firstLineText = rawText.split('\\n')[0].trim().slice(0, 80);
       const outerOpening = el.outerHTML ? el.outerHTML.split('>')[0] + '>' : '';
+      const isText = isTextBox(el);
 
       const info = {
         tag: el.tagName.toLowerCase(),
@@ -317,6 +424,7 @@ const INJECTED_INSPECTOR_SCRIPT = `
         outerOpening: outerOpening.slice(0, 200),
         src: el.getAttribute('src') || el.src || '',
         href: el.getAttribute('href') || el.href || '',
+        isText: isText,
         parentTag: el.parentElement ? el.parentElement.tagName.toLowerCase() : '',
         parentClass: (el.parentElement && typeof el.parentElement.className === 'string') ? el.parentElement.className : ''
       };
