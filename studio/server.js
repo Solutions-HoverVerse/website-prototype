@@ -618,7 +618,12 @@ const INJECTED_INSPECTOR_SCRIPT = `
       const outerOpening = el.outerHTML ? el.outerHTML.split('>')[0] + '>' : '';
       const isText = isTextBox(el);
 
+      const pageFile = window.location.pathname.replace(/^\/preview\/?/, '') || 'index.html';
+      const cleanId = pageFile.replace(/\.html$/, '');
+
       const info = {
+        pageFile: pageFile === '' ? 'index.html' : pageFile,
+        pageId: cleanId === 'index' || cleanId === '' ? 'home' : cleanId,
         tag: el.tagName.toLowerCase(),
         id: el.id || '',
         className: typeof el.className === 'string' ? el.className : '',
@@ -647,6 +652,19 @@ const INJECTED_INSPECTOR_SCRIPT = `
         window.parent.postMessage({ type: 'HV_INSPECTOR_CANCELLED' }, '*');
       }
     });
+
+    // Notify parent Studio of active page on load and navigation
+    try {
+      const activeFile = window.location.pathname.replace(/^\/preview\/?/, '') || 'index.html';
+      const activeId = activeFile.replace(/\.html$/, '');
+      window.parent.postMessage({
+        type: 'HV_PAGE_LOADED',
+        url: window.location.href,
+        pathname: window.location.pathname,
+        pageFile: activeFile === '' ? 'index.html' : activeFile,
+        pageId: activeId === 'index' || activeId === '' ? 'home' : activeId
+      }, '*');
+    } catch (e) {}
   })();
 </script>
 `;

@@ -726,9 +726,35 @@
 
     function switchPage(el, url) {
       document.querySelectorAll('.page-tab').forEach(t => t.classList.remove('active'));
-      el.classList.add('active');
+      if (el) el.classList.add('active');
+      clearSelectedElement();
       const frame = document.getElementById('sandboxFrame');
       frame.src = url;
+    }
+
+    function syncActivePageTab(pageFile, pageId) {
+      if (!pageFile) return;
+      const cleanFile = pageFile.toLowerCase().replace(/^\/preview\/?/, '');
+      const cleanId = (pageId || cleanFile.replace(/\.html$/, '')).toLowerCase();
+      
+      const tabs = document.querySelectorAll('.page-tab');
+      tabs.forEach(tab => {
+        const url = (tab.dataset.url || '').toLowerCase();
+        const text = (tab.innerText || '').toLowerCase().trim();
+        if (
+          url.includes(cleanFile) || 
+          text === cleanId || 
+          ((cleanId === 'home' || cleanFile === 'index.html') && (url.includes('index.html') || text === 'home'))
+        ) {
+          tabs.forEach(t => t.classList.remove('active'));
+          tab.classList.add('active');
+        }
+      });
+
+      // Clear any locked element from a different page to avoid cross-page targeting
+      if (selectedElementInfo && selectedElementInfo.pageFile && selectedElementInfo.pageFile.toLowerCase() !== cleanFile) {
+        clearSelectedElement();
+      }
     }
 
     function setViewport(elOrWidth, optionalWidth) {
@@ -801,6 +827,9 @@
     // Handle messages from the iframe (visual point-and-click element selector)
     window.addEventListener('message', async (e) => {
       if (!e.data) return;
+      if (e.data.type === 'HV_PAGE_LOADED') {
+        syncActivePageTab(e.data.pageFile, e.data.pageId);
+      }
       if (e.data.type === 'HV_ELEMENT_SELECTED') {
         selectedElementInfo = e.data.info;
         inspectorActive = false; // Selecting function is now turned OFF!
@@ -1077,6 +1106,22 @@
         }
       });
 
+      // Sync page tab whenever preview iframe navigates internally
+      const frame = document.getElementById('sandboxFrame');
+      if (frame) {
+        frame.addEventListener('load', () => {
+          try {
+            if (frame.contentWindow && frame.contentWindow.location) {
+              const path = frame.contentWindow.location.pathname;
+              if (path && path.includes('/preview/')) {
+                const file = path.replace(/^\/preview\/?/, '') || 'index.html';
+                syncActivePageTab(file, file.replace(/\.html$/, ''));
+              }
+            }
+          } catch (e) {}
+        });
+      }
+
       // Check if undo is available on startup
       fetch('/api/can-undo')
         .then(r => r.json())
@@ -1117,8 +1162,34 @@
       const prompt = promptInput.value.trim();
       if (!prompt && !currentAttachment) return;
 
-      const activeTab = document.querySelector('.page-tab.active');
-      const targetPageId = activeTab ? activeTab.innerText.toLowerCase() : 'home';
+      // Accurately determine target page from iframe location, selected element, or active tab
+      let targetPageId = 'home';
+      let targetPageFile = 'index.html';
+
+      const frame = document.getElementById('sandboxFrame');
+      try {
+        if (frame && frame.contentWindow && frame.contentWindow.location) {
+          const path = frame.contentWindow.location.pathname;
+          if (path && path.includes('/preview/')) {
+            targetPageFile = path.replace(/^\/preview\/?/, '') || 'index.html';
+            const cleanId = targetPageFile.replace(/\.html$/, '');
+            targetPageId = cleanId === 'index' || cleanId === '' ? 'home' : cleanId;
+          }
+        }
+      } catch (e) {}
+
+      if (selectedElementInfo && selectedElementInfo.pageFile) {
+        targetPageFile = selectedElementInfo.pageFile;
+        targetPageId = selectedElementInfo.pageId || targetPageId;
+      } else if (targetPageFile === 'index.html') {
+        const activeTab = document.querySelector('.page-tab.active');
+        if (activeTab) {
+          const tabText = activeTab.innerText.toLowerCase().trim();
+          const tabUrl = activeTab.dataset.url || '';
+          if (tabUrl) targetPageFile = tabUrl.replace(/^\/preview\/?/, '');
+          targetPageId = tabText === 'home' ? 'home' : tabText;
+        }
+      }
 
       addMessage('user', (prompt || 'Insert media') + (currentAttachment ? ` [Attached: ${currentAttachment.name}]` : ''));
       promptInput.value = '';
@@ -1132,6 +1203,7 @@
           body: JSON.stringify({
             prompt,
             targetPageId,
+            targetPageFile,
             selectedElement: selectedElementInfo,
             actionType: currentActionType,
             aspectRatio: selectedAspectRatio,
@@ -1145,11 +1217,13 @@
         if (data.success) {
           updateUndoButton(true);
           addMessage('agent', `✓ <strong>Change applied:</strong> ${data.summary}`);
-          reloadPreview();
-          if (data.pageUrl) {
-            const matchingTab = Array.from(document.querySelectorAll('.page-tab')).find(t => t.dataset.url.includes(data.targetPage));
-            if (matchingTab) switchPage(matchingTab, `/preview/${data.targetPage}`);
+          
+          const resultFile = data.targetPage || targetPageFile || 'index.html';
+          const targetUrl = `/preview/${resultFile}`;
+          if (frame) {
+            frame.src = `${targetUrl}?t=${Date.now()}`;
           }
+          syncActivePageTab(resultFile, data.targetPageId || targetPageId);
         } else {
           addMessage('agent', `⚠️ ${data.summary || 'Could not complete requested change.'}`);
         }

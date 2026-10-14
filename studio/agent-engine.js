@@ -461,14 +461,19 @@ async function processElementReposition({ targetPageId, selectedElement, reposit
 /**
  * Handle executive natural language edit & DOM rearrangement
  */
-async function processExecutiveEdit({ prompt = '', targetPageId, selectedElement, actionType = 'auto', attachment, assetPath, aspectRatio }) {
+async function processExecutiveEdit({ prompt = '', targetPageId, targetPageFile, selectedElement, actionType = 'auto', attachment, assetPath, aspectRatio }) {
   const manifest = loadManifest();
   const lowerPrompt = prompt.toLowerCase();
 
   // 1. Determine Target Page
   let targetPage = null;
-  if (targetPageId) {
-    targetPage = manifest.pages.find(p => p.id === targetPageId || p.file === targetPageId);
+  if (targetPageFile) {
+    const cleanFile = targetPageFile.replace(/^\/preview\/?/, '').trim().toLowerCase();
+    targetPage = manifest.pages.find(p => p.file.toLowerCase() === cleanFile || p.file.toLowerCase() === `${cleanFile}.html`);
+  }
+  if (!targetPage && targetPageId) {
+    const cleanId = targetPageId.toLowerCase().trim();
+    targetPage = manifest.pages.find(p => p.id === cleanId || p.file.toLowerCase().includes(cleanId));
   }
   if (!targetPage) {
     if (lowerPrompt.includes('platform')) targetPage = manifest.pages.find(p => p.id === 'platform');
@@ -662,13 +667,55 @@ async function processExecutiveEdit({ prompt = '', targetPageId, selectedElement
     }
   }
 
-  // 6. Generic Media Insertion Fallback (if user attached media without selecting element)
+  // 6. Smart Auto Media Placement Fallback (when media is added without locking an element)
   if (!modified && savedAssetPath) {
-    const wrapRegex = /(<section[^>]*class="[^"]*hero[^"]*"[^>]*>[\s\S]*?<div class="wrap"[^>]*>)/i;
-    if (wrapRegex.test(htmlContent)) {
-      htmlContent = htmlContent.replace(wrapRegex, `$1\n<div class="media-banner-panel">\n  ${mediaTag}\n</div>\n`);
+    const isReverse = effectiveAction === 'insert_beside_left' || lowerPrompt.includes('media left') || lowerPrompt.includes('left side');
+    let initialAlign = 'align-center';
+    if (lowerPrompt.includes('lower') || lowerPrompt.includes('bottom') || (attachment && attachment.alignment === 'end')) {
+      initialAlign = 'align-end';
+    } else if (lowerPrompt.includes('higher') || lowerPrompt.includes('upper') || (attachment && attachment.alignment === 'start')) {
+      initialAlign = 'align-start';
+    }
+
+    // Pattern A: Look for sec-head (solutions.html, about.html, careers.html, resources.html)
+    const secHeadRegex = /<div class="sec-head[^"]*"[^>]*>([\s\S]*?)<\/div>/i;
+    const secHeadMatch = secHeadRegex.exec(htmlContent);
+
+    // Pattern B: Look for hero-copy (index.html, platform.html)
+    const heroCopyRegex = /<div class="hero-copy[^"]*"[^>]*>([\s\S]*?)<\/div>/i;
+    const heroCopyMatch = heroCopyRegex.exec(htmlContent);
+
+    const targetHeaderBlock = secHeadMatch || heroCopyMatch;
+
+    if (effectiveAction === 'insert_below' && targetHeaderBlock) {
+      const insertIdx = targetHeaderBlock.index + targetHeaderBlock[0].length;
+      const bannerHtml = `\n<div class="media-banner-panel${ratioClass}" style="${aspectStyle}margin:36px 0 24px;border-radius:16px;overflow:hidden;border:1px solid rgba(255,255,255,0.08);background:#0d141c;">\n  ${mediaTag}\n</div>\n`;
+      htmlContent = htmlContent.slice(0, insertIdx) + bannerHtml + htmlContent.slice(insertIdx);
       modified = true;
-      summary = `Inserted new ${isVideo ? 'video' : 'image/GIF'} into the hero section of ${targetPage.file}.`;
+      summary = `Inserted new ${isVideo ? 'video' : (savedAssetPath.endsWith('.gif') ? 'animated GIF' : 'image')} as a featured banner directly below the header on ${targetPage.file}.`;
+    } else if (targetHeaderBlock) {
+      // Default for 'auto' and 'insert_beside': responsive 2-column split-media-grid
+      const matchedHtml = targetHeaderBlock[0];
+      const splitGridHtml = `
+<div class="split-media-grid ${initialAlign}${isReverse ? ' reverse' : ''}">
+  <div class="split-text-col">
+    ${matchedHtml}
+  </div>
+  <div class="split-media-col${ratioClass}" style="${aspectStyle}">
+    ${mediaTag}
+  </div>
+</div>`;
+      htmlContent = htmlContent.slice(0, targetHeaderBlock.index) + splitGridHtml + htmlContent.slice(targetHeaderBlock.index + matchedHtml.length);
+      modified = true;
+      summary = `Inserted new ${isVideo ? 'video' : (savedAssetPath.endsWith('.gif') ? 'animated GIF' : 'image')} and arranged the hero content into a responsive split layout on ${targetPage.file}.`;
+    } else {
+      // Fallback: look for hero wrap or main wrap
+      const wrapRegex = /(<section[^>]*class="[^"]*hero[^"]*"[^>]*>[\s\S]*?<div class="wrap"[^>]*>)/i;
+      if (wrapRegex.test(htmlContent)) {
+        htmlContent = htmlContent.replace(wrapRegex, `$1\n<div class="media-banner-panel${ratioClass}" style="${aspectStyle}margin:32px 0;border-radius:16px;overflow:hidden;border:1px solid rgba(255,255,255,0.08);">\n  ${mediaTag}\n</div>\n`);
+        modified = true;
+        summary = `Inserted new ${isVideo ? 'video' : (savedAssetPath.endsWith('.gif') ? 'animated GIF' : 'image')} into the hero section of ${targetPage.file}.`;
+      }
     }
   }
 
