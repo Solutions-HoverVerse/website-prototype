@@ -649,9 +649,9 @@
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20M2 12h20"/></svg>
             <span>Point & Click Inspector</span>
           </button>
-          <button class="vp-btn active" onclick="setViewport('100%')">Desktop</button>
-          <button class="vp-btn" onclick="setViewport('768px')">Tablet</button>
-          <button class="vp-btn" onclick="setViewport('375px')">Mobile</button>
+          <button class="vp-btn active" onclick="setViewport(this, '100%')">Desktop</button>
+          <button class="vp-btn" onclick="setViewport(this, '768px')">Tablet</button>
+          <button class="vp-btn" onclick="setViewport(this, '375px')">Mobile</button>
           <button class="vp-btn" onclick="reloadPreview()" title="Refresh">↻</button>
         </div>
       </div>
@@ -700,27 +700,39 @@
       frame.src = url;
     }
 
-    function setViewport(width) {
+    function setViewport(elOrWidth, optionalWidth) {
+      const width = typeof elOrWidth === 'string' ? elOrWidth : optionalWidth;
+      const el = (typeof elOrWidth === 'object' && elOrWidth) ? elOrWidth : null;
       document.querySelectorAll('.vp-btn').forEach(b => b.classList.remove('active'));
-      event.target.classList.add('active');
-      document.getElementById('sandboxFrame').style.width = width;
+      if (el && el.classList) {
+        el.classList.add('active');
+      } else {
+        const matchingBtn = Array.from(document.querySelectorAll('.vp-btn')).find(b => b.getAttribute('onclick') && b.getAttribute('onclick').includes(width));
+        if (matchingBtn) matchingBtn.classList.add('active');
+      }
+      const frame = document.getElementById('sandboxFrame');
+      if (frame) frame.style.width = width;
     }
 
     function reloadPreview() {
       const frame = document.getElementById('sandboxFrame');
-      frame.src = frame.src;
+      if (frame) frame.src = frame.src;
     }
 
     function toggleInspector() {
       inspectorActive = !inspectorActive;
       const btn = document.getElementById('inspectorToggle');
-      btn.classList.toggle('active', inspectorActive);
-      btn.innerHTML = inspectorActive 
-        ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20M2 12h20"/></svg><span>Selecting... (Click element to lock)</span>`
-        : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20M2 12h20"/></svg><span>Point & Click Inspector</span>`;
+      if (btn) {
+        btn.classList.toggle('active', inspectorActive);
+        btn.innerHTML = inspectorActive 
+          ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20M2 12h20"/></svg><span>Selecting... (Click element to lock)</span>`
+          : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20M2 12h20"/></svg><span>Point & Click Inspector</span>`;
+      }
       
       const frame = document.getElementById('sandboxFrame');
-      frame.contentWindow.postMessage({ type: 'HV_TOGGLE_INSPECTOR', enabled: inspectorActive }, '*');
+      if (frame && frame.contentWindow) {
+        frame.contentWindow.postMessage({ type: 'HV_TOGGLE_INSPECTOR', enabled: inspectorActive }, '*');
+      }
     }
 
     let currentActionType = 'insert_beside';
@@ -734,7 +746,7 @@
     }
 
     // Handle messages from the iframe (visual point-and-click element selector)
-    window.addEventListener('message', (e) => {
+    window.addEventListener('message', async (e) => {
       if (!e.data) return;
       if (e.data.type === 'HV_ELEMENT_SELECTED') {
         selectedElementInfo = e.data.info;
