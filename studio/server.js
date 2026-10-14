@@ -24,8 +24,15 @@ const MIME_TYPES = {
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
-  '.svg': 'image/svg+xml',
+  '.gif': 'image/gif',
   '.webp': 'image/webp',
+  '.svg': 'image/svg+xml',
+  '.avif': 'image/avif',
+  '.bmp': 'image/bmp',
+  '.mp4': 'video/mp4',
+  '.webm': 'video/webm',
+  '.ogg': 'video/ogg',
+  '.mov': 'video/quicktime',
   '.pdf': 'application/pdf',
   '.ico': 'image/x-icon'
 };
@@ -140,13 +147,21 @@ const INJECTED_INSPECTOR_SCRIPT = `
 
       updateOverlayPos(lockedEl, true); // Lock highlight in place
 
+      const rawText = (el.innerText || el.textContent || '').trim();
+      const firstLineText = rawText.split('\\n')[0].trim().slice(0, 80);
+      const outerOpening = el.outerHTML ? el.outerHTML.split('>')[0] + '>' : '';
+
       const info = {
         tag: el.tagName.toLowerCase(),
         id: el.id || '',
-        className: el.className || '',
-        text: (el.innerText || el.textContent || '').trim().slice(0, 120),
-        src: el.src || '',
-        href: el.href || ''
+        className: typeof el.className === 'string' ? el.className : '',
+        text: rawText.slice(0, 160),
+        firstLine: firstLineText,
+        outerOpening: outerOpening.slice(0, 200),
+        src: el.getAttribute('src') || el.src || '',
+        href: el.getAttribute('href') || el.href || '',
+        parentTag: el.parentElement ? el.parentElement.tagName.toLowerCase() : '',
+        parentClass: (el.parentElement && typeof el.parentElement.className === 'string') ? el.parentElement.className : ''
       };
 
       window.parent.postMessage({
@@ -167,6 +182,41 @@ const INJECTED_INSPECTOR_SCRIPT = `
   })();
 </script>
 `;
+
+function serveFileWithStreaming(req, res, filePath) {
+  try {
+    const stat = fs.statSync(filePath);
+    const ext = path.extname(filePath).toLowerCase();
+    const mime = MIME_TYPES[ext] || 'application/octet-stream';
+    const range = req.headers.range;
+
+    // HTTP 206 Partial Content for smooth video seeking & streaming (MP4, WebM, MOV)
+    if (range && (mime.startsWith('video/') || mime.startsWith('audio/'))) {
+      const parts = range.replace(/bytes=/, "").split("-");
+      const start = parseInt(parts[0], 10);
+      const end = parts[1] ? parseInt(parts[1], 10) : stat.size - 1;
+      const chunksize = (end - start) + 1;
+      const file = fs.createReadStream(filePath, { start, end });
+      res.writeHead(206, {
+        'Content-Range': `bytes ${start}-${end}/${stat.size}`,
+        'Accept-Ranges': 'bytes',
+        'Content-Length': chunksize,
+        'Content-Type': mime
+      });
+      file.pipe(res);
+    } else {
+      res.writeHead(200, {
+        'Content-Length': stat.size,
+        'Content-Type': mime,
+        'Accept-Ranges': 'bytes'
+      });
+      fs.createReadStream(filePath).pipe(res);
+    }
+  } catch (err) {
+    res.writeHead(404, { 'Content-Type': 'text/plain' });
+    res.end('File Not Found');
+  }
+}
 
 const server = http.createServer((req, res) => {
   const parsedUrl = url.parse(req.url, true);
@@ -191,13 +241,65 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // 2. API Endpoints
+  // 2. Direct Media Upload Endpoint (JSON with Base64 dataURL)
+  if (pathname === '/api/upload' && req.method === 'POST') {
+    const chunks = [];
+    req.on('data', chunk => chunks.push(chunk));
+    req.on('end', () => {
+      try {
+        const bodyStr = Buffer.concat(chunks).toString('utf-8');
+        const payload = JSON.parse(bodyStr);
+        const saved = agentEngine.saveUploadedAsset(payload);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, ...saved }));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: err.message }));
+      }
+    });
+    return;
+  }
+
+  // 2b. Direct Raw Binary Upload (supports large animated GIFs, MP4, WebM up to 100MB+)
+  if (pathname === '/api/upload-raw' && req.method === 'POST') {
+    const origFilename = (parsedUrl.query && parsedUrl.query.filename) ? decodeURIComponent(parsedUrl.query.filename) : 'media.png';
+    const ext = path.extname(origFilename).replace('.', '').toLowerCase() || 'png';
+    const cleanBaseName = path.basename(origFilename, path.extname(origFilename)).replace(/[^a-zA-Z0-9_-]/g, '_');
+    const uploadsDir = path.join(ROOT_DIR, 'assets', 'uploads');
+    if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+
+    const targetFilename = `exec_${Date.now()}_${cleanBaseName}.${ext}`;
+    const targetPath = path.join(uploadsDir, targetFilename);
+    const writeStream = fs.createWriteStream(targetPath);
+
+    req.pipe(writeStream);
+    writeStream.on('finish', () => {
+      const isVideo = ['mp4', 'webm', 'mov', 'ogg'].includes(ext);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        success: true,
+        assetPath: `assets/uploads/${targetFilename}`,
+        filename: targetFilename,
+        ext,
+        isVideo,
+        isImage: !isVideo
+      }));
+    });
+    writeStream.on('error', (err) => {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: false, error: err.message }));
+    });
+    return;
+  }
+
+  // 3. Natural Language & Targeted Edit Endpoint
   if (pathname === '/api/edit' && req.method === 'POST') {
-    let body = '';
-    req.on('data', chunk => body += chunk);
+    const chunks = [];
+    req.on('data', chunk => chunks.push(chunk));
     req.on('end', async () => {
       try {
-        const payload = JSON.parse(body);
+        const bodyStr = Buffer.concat(chunks).toString('utf-8');
+        const payload = JSON.parse(bodyStr);
         const result = await agentEngine.processExecutiveEdit(payload);
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(result));
@@ -224,11 +326,12 @@ const server = http.createServer((req, res) => {
   }
 
   if (pathname === '/api/publish' && req.method === 'POST') {
-    let body = '';
-    req.on('data', chunk => body += chunk);
+    const chunks = [];
+    req.on('data', chunk => chunks.push(chunk));
     req.on('end', async () => {
       try {
-        const payload = JSON.parse(body || '{}');
+        const bodyStr = Buffer.concat(chunks).toString('utf-8');
+        const payload = JSON.parse(bodyStr || '{}');
         const result = await agentEngine.publishChanges(payload);
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(result));
@@ -240,7 +343,7 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // 3. Sandbox Preview Route: /preview/*
+  // 4. Sandbox Preview Route: /preview/*
   if (pathname.startsWith('/preview/')) {
     let relative = pathname.replace('/preview/', '') || 'index.html';
     if (relative === '' || relative === '/') relative = 'index.html';
@@ -263,8 +366,7 @@ const server = http.createServer((req, res) => {
         return;
       }
 
-      res.writeHead(200, { 'Content-Type': mime });
-      res.end(fs.readFileSync(filePath));
+      serveFileWithStreaming(req, res, filePath);
       return;
     } else {
       res.writeHead(404, { 'Content-Type': 'text/plain' });
@@ -273,13 +375,10 @@ const server = http.createServer((req, res) => {
     }
   }
 
-  // 4. Static Assets from root
+  // 5. Static Assets from root
   const directPath = path.join(ROOT_DIR, pathname);
   if (fs.existsSync(directPath) && fs.statSync(directPath).isFile()) {
-    const ext = path.extname(directPath).toLowerCase();
-    const mime = MIME_TYPES[ext] || 'application/octet-stream';
-    res.writeHead(200, { 'Content-Type': mime });
-    res.end(fs.readFileSync(directPath));
+    serveFileWithStreaming(req, res, directPath);
     return;
   }
 

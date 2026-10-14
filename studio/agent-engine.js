@@ -1,9 +1,12 @@
 /**
  * Hoververse Executive Studio — Site-Aware AI Agent Engine
  * 
- * Translates Natural Language executive requests into precise DOM modifications,
- * manages file assets/attachments, generates visual diffs, and coordinates
- * deployments to both Cloudflare Pages / Static Hosting and Wix Studio (Velo).
+ * Supports:
+ * - Extended image formats: PNG, JPG, JPEG, GIF (animated), WebP, SVG, AVIF, BMP
+ * - Extended video formats: MP4, WebM, MOV, OGG (with autoplay, loop, muted, controls)
+ * - Dynamic layout rearrangement (Split-grid 2-column, media banners, section insertion)
+ * - Arbitrary element targeting & insertion into undefined panels
+ * - Safe sandbox hot-reloading and dual-pipeline deployment (Cloudflare Pages + Wix Studio)
  */
 
 const fs = require('fs');
@@ -26,10 +29,188 @@ function loadManifest() {
   }
 }
 
+function escapeRegExp(string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 /**
- * Handle executive natural language edit
+ * Save an uploaded media asset (image, animated GIF, or video) to assets/uploads/
  */
-async function processExecutiveEdit({ prompt, targetPageId, selectedElement, attachment }) {
+function saveUploadedAsset({ name, dataUrl, buffer }) {
+  let ext = 'png';
+  let fileBuffer = null;
+
+  if (dataUrl) {
+    const mimeMatch = dataUrl.match(/^data:([A-Za-z0-9\/-]+);base64,(.+)$/);
+    if (mimeMatch) {
+      const mime = mimeMatch[1].toLowerCase();
+      if (mime.includes('gif')) ext = 'gif';
+      else if (mime.includes('jpeg') || mime.includes('jpg')) ext = 'jpg';
+      else if (mime.includes('png')) ext = 'png';
+      else if (mime.includes('webp')) ext = 'webp';
+      else if (mime.includes('svg')) ext = 'svg';
+      else if (mime.includes('mp4')) ext = 'mp4';
+      else if (mime.includes('webm')) ext = 'webm';
+      else if (mime.includes('quicktime') || mime.includes('mov')) ext = 'mov';
+      else if (mime.includes('ogg')) ext = 'ogg';
+      else if (mime.includes('avif')) ext = 'avif';
+
+      fileBuffer = Buffer.from(mimeMatch[2], 'base64');
+    }
+  } else if (buffer) {
+    fileBuffer = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer);
+  }
+
+  if (name && name.includes('.')) {
+    const namedExt = name.split('.').pop().toLowerCase();
+    if (['gif', 'mp4', 'webm', 'mov', 'png', 'jpg', 'jpeg', 'webp', 'svg', 'avif', 'bmp', 'ogg'].includes(namedExt)) {
+      ext = namedExt;
+    }
+  }
+
+  if (!fileBuffer) {
+    throw new Error('No valid file buffer or dataUrl provided.');
+  }
+
+  const cleanBaseName = (name || 'media').replace(/\.[^/.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '_');
+  const filename = `exec_${Date.now()}_${cleanBaseName}.${ext}`;
+  const fullPath = path.join(UPLOADS_DIR, filename);
+
+  fs.writeFileSync(fullPath, fileBuffer);
+  const isVideo = ['mp4', 'webm', 'mov', 'ogg'].includes(ext);
+
+  return {
+    assetPath: `assets/uploads/${filename}`,
+    filename,
+    ext,
+    isVideo,
+    isImage: !isVideo
+  };
+}
+
+/**
+ * Robust Element Finder & Range Boundary Calculator
+ */
+function findElementRange(html, elInfo) {
+  if (!elInfo) return null;
+
+  // Strategy 1: Match by ID
+  if (elInfo.id) {
+    const idRegex = new RegExp(`id=["']${escapeRegExp(elInfo.id)}["']`, 'i');
+    const match = idRegex.exec(html);
+    if (match) {
+      return expandElementBounds(html, match.index, elInfo.tag);
+    }
+  }
+
+  // Strategy 2: Match by exact src (for existing img/video)
+  if (elInfo.src) {
+    const cleanSrc = elInfo.src.replace(/^https?:\/\/[^\/]+(\/preview)?\//, '').trim();
+    const baseSrc = path.basename(cleanSrc);
+    let srcIdx = html.indexOf(cleanSrc);
+    if (srcIdx === -1 && baseSrc.length > 3) {
+      srcIdx = html.indexOf(baseSrc);
+    }
+    if (srcIdx !== -1) {
+      return expandElementBounds(html, srcIdx, elInfo.tag || 'img');
+    }
+  }
+
+  // Strategy 3: Match by distinctive outer opening tag
+  if (elInfo.outerOpening && elInfo.outerOpening.length > 5) {
+    const openIdx = html.indexOf(elInfo.outerOpening);
+    if (openIdx !== -1) {
+      return expandElementBounds(html, openIdx, elInfo.tag);
+    }
+  }
+
+  // Strategy 4: Match by text snippet (firstLine or clean text)
+  const candidateText = (elInfo.firstLine || elInfo.text || '').trim();
+  if (candidateText && candidateText.length >= 6) {
+    const snippet = candidateText.slice(0, 36);
+    let textIdx = html.indexOf(snippet);
+    if (textIdx !== -1) {
+      return expandElementBounds(html, textIdx, elInfo.tag);
+    }
+
+    const words = candidateText.replace(/[^a-zA-Z0-9\s]/g, ' ')
+      .split(/\s+/)
+      .filter(w => w.length >= 3)
+      .slice(0, 4);
+
+    if (words.length >= 2) {
+      const flexPattern = words.map(w => escapeRegExp(w)).join('[\\s\\S]{1,60}?');
+      try {
+        const flexRegex = new RegExp(flexPattern, 'i');
+        const flexMatch = flexRegex.exec(html);
+        if (flexMatch) {
+          return expandElementBounds(html, flexMatch.index, elInfo.tag);
+        }
+      } catch (e) {}
+    }
+  }
+
+  // Strategy 5: Match by distinctive class
+  if (elInfo.className && typeof elInfo.className === 'string') {
+    const classes = elInfo.className.trim().split(/\s+/).filter(c => c && !['reveal', 'd1', 'd2', 'd3', 'd4'].includes(c));
+    for (const cls of classes) {
+      const clsRegex = new RegExp(`<${elInfo.tag || '[a-zA-Z0-9]+'}[^>]*class=["'][^"']*\\b${escapeRegExp(cls)}\\b[^"']*["']`, 'i');
+      const match = clsRegex.exec(html);
+      if (match) {
+        return expandElementBounds(html, match.index, elInfo.tag);
+      }
+    }
+  }
+
+  return null;
+}
+
+function expandElementBounds(html, index, tagHint) {
+  let openIdx = html.lastIndexOf('<', index);
+  if (openIdx === -1) openIdx = index;
+
+  const tagMatch = html.slice(openIdx).match(/^<([a-zA-Z0-9-]+)/);
+  const tagName = (tagMatch ? tagMatch[1] : (tagHint || 'div')).toLowerCase();
+
+  if (['img', 'input', 'hr', 'br', 'source'].includes(tagName)) {
+    const closeIdx = html.indexOf('>', openIdx);
+    return {
+      start: openIdx,
+      end: closeIdx !== -1 ? closeIdx + 1 : openIdx + 10,
+      tagName,
+      outerHtml: html.slice(openIdx, closeIdx + 1)
+    };
+  }
+
+  const closingTag = `</${tagName}>`;
+  let closeIdx = html.indexOf(closingTag, index);
+  if (closeIdx === -1) {
+    closeIdx = html.indexOf(closingTag, openIdx);
+  }
+
+  if (closeIdx !== -1) {
+    const end = closeIdx + closingTag.length;
+    return {
+      start: openIdx,
+      end,
+      tagName,
+      outerHtml: html.slice(openIdx, end)
+    };
+  }
+
+  const endTag = html.indexOf('>', openIdx) + 1;
+  return {
+    start: openIdx,
+    end: endTag,
+    tagName,
+    outerHtml: html.slice(openIdx, endTag)
+  };
+}
+
+/**
+ * Handle executive natural language edit & DOM rearrangement
+ */
+async function processExecutiveEdit({ prompt = '', targetPageId, selectedElement, actionType = 'auto', attachment, assetPath }) {
   const manifest = loadManifest();
   const lowerPrompt = prompt.toLowerCase();
 
@@ -53,81 +234,177 @@ async function processExecutiveEdit({ prompt, targetPageId, selectedElement, att
   }
 
   let htmlContent = fs.readFileSync(targetFilePath, 'utf-8');
-  const originalContent = htmlContent;
   let summary = '';
   let modified = false;
 
-  // 2. Handle Attached Image / Asset (e.g. "change the picture ... to this one [pasted jpeg]")
-  let savedAssetPath = null;
-  if (attachment && attachment.dataUrl) {
-    const matches = attachment.dataUrl.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
-    if (matches) {
-      const ext = matches[1].split('/')[1] === 'jpeg' ? 'jpg' : (matches[1].split('/')[1] || 'png');
-      const filename = `exec_${Date.now()}_${(attachment.name || 'image').replace(/[^a-zA-Z0-9_-]/g, '_')}.${ext}`;
-      const fullPath = path.join(UPLOADS_DIR, filename);
-      fs.writeFileSync(fullPath, Buffer.from(matches[2], 'base64'));
-      savedAssetPath = `assets/uploads/${filename}`;
+  // 2. Resolve Asset (image, animated GIF, or video)
+  let savedAssetPath = assetPath || null;
+  let isVideo = false;
+
+  if (!savedAssetPath && attachment && attachment.dataUrl) {
+    const saved = saveUploadedAsset(attachment);
+    savedAssetPath = saved.assetPath;
+    isVideo = saved.isVideo;
+  } else if (savedAssetPath) {
+    const ext = savedAssetPath.split('.').pop().toLowerCase();
+    isVideo = ['mp4', 'webm', 'mov', 'ogg'].includes(ext);
+  }
+
+  // Generate appropriate HTML5 media tag (video or image/GIF)
+  let mediaTag = '';
+  if (savedAssetPath) {
+    if (isVideo) {
+      mediaTag = `<video src="${savedAssetPath}" autoplay loop muted playsinline controls style="width:100%;height:100%;max-height:480px;object-fit:cover;display:block;border-radius:16px;"></video>`;
+    } else {
+      mediaTag = `<img src="${savedAssetPath}" alt="Hoververse interactive visual" style="width:100%;height:100%;max-height:480px;object-fit:cover;display:block;border-radius:16px;" loading="lazy" />`;
     }
   }
 
-  // 3. Scenario A: "change the picture on the platform page adjacent to deterministic by design section"
-  if (
-    (lowerPrompt.includes('deterministic') || lowerPrompt.includes('pipeline') || (selectedElement && selectedElement.includes('pipe')))
-    && (lowerPrompt.includes('picture') || lowerPrompt.includes('image') || lowerPrompt.includes('photo') || savedAssetPath)
-  ) {
-    const assetToUse = savedAssetPath || 'assets/uploads/deterministic_preview.jpg';
-    
-    // Look for .pipe-stage container
+  // 3. Determine Layout Action (insert_beside, insert_beside_left, insert_below, insert_above, replace)
+  let effectiveAction = actionType;
+  if (effectiveAction === 'auto') {
+    if (
+      lowerPrompt.includes('beside') ||
+      lowerPrompt.includes('next to') ||
+      lowerPrompt.includes('adjacent') ||
+      lowerPrompt.includes('split') ||
+      lowerPrompt.includes('two column') ||
+      lowerPrompt.includes('side by side') ||
+      lowerPrompt.includes('rearrange')
+    ) {
+      effectiveAction = 'insert_beside';
+    } else if (lowerPrompt.includes('below') || lowerPrompt.includes('under') || lowerPrompt.includes('after') || lowerPrompt.includes('beneath')) {
+      effectiveAction = 'insert_below';
+    } else if (lowerPrompt.includes('above') || lowerPrompt.includes('before') || lowerPrompt.includes('on top')) {
+      effectiveAction = 'insert_above';
+    } else if (lowerPrompt.includes('replace') || lowerPrompt.includes('change the picture') || lowerPrompt.includes('swap') || lowerPrompt.includes('change image')) {
+      effectiveAction = 'replace';
+    } else if (selectedElement && selectedElement.tag && ['img', 'video', 'canvas'].includes(selectedElement.tag)) {
+      effectiveAction = 'replace';
+    } else if (savedAssetPath) {
+      effectiveAction = 'insert_beside'; // Default when adding new media to a text element
+    }
+  }
+
+  // 4. Insertion / Rearrangement with Selected Element
+  if (savedAssetPath && selectedElement) {
+    const bounds = findElementRange(htmlContent, selectedElement);
+    if (bounds) {
+      let blockStart = bounds.start;
+      let blockEnd = bounds.end;
+      let targetBlock = htmlContent.slice(blockStart, blockEnd);
+
+      // Optional caption extraction from prompt
+      const captionMatch = prompt.match(/caption(?:ed)?\s+["“]([^"”]+)["”]/i) || prompt.match(/with caption\s+([^,.]+)/i);
+      const captionHtml = captionMatch ? `\n    <div class="media-caption">${captionMatch[1].trim()}</div>` : '';
+
+      // A: REPLACE existing element
+      if (effectiveAction === 'replace') {
+        htmlContent = htmlContent.slice(0, blockStart) + mediaTag + htmlContent.slice(blockEnd);
+        modified = true;
+        summary = `Replaced <${bounds.tagName}> with new ${isVideo ? 'video' : (savedAssetPath.endsWith('.gif') ? 'animated GIF' : 'image')} (${savedAssetPath}).`;
+      }
+
+      // B: INSERT BESIDE (Split-grid 2-column rearrangement)
+      else if (effectiveAction === 'insert_beside' || effectiveAction === 'insert_beside_left') {
+        const isReverse = effectiveAction === 'insert_beside_left' || lowerPrompt.includes('media left') || lowerPrompt.includes('left side');
+
+        // Contextual grouping: if user clicked on <p>, include preceding <h2>/<h3>/kicker if directly adjacent
+        if (bounds.tagName === 'p') {
+          const textBefore = htmlContent.slice(Math.max(0, blockStart - 350), blockStart);
+          const headingMatch = textBefore.match(/(<(?:h[1-6]|p class="kicker")[^>]*>[\s\S]*?<\/(?:h[1-6]|p)>)\s*$/i);
+          if (headingMatch) {
+            blockStart -= headingMatch[0].length;
+            targetBlock = htmlContent.slice(blockStart, blockEnd);
+          }
+        } else if (/^h[1-6]$/.test(bounds.tagName)) {
+          // If clicked on heading, include subsequent <p> if directly adjacent
+          const textAfter = htmlContent.slice(blockEnd, Math.min(htmlContent.length, blockEnd + 400));
+          const pMatch = textAfter.match(/^\s*(<p[^>]*>[\s\S]*?<\/p>)/i);
+          if (pMatch) {
+            blockEnd += pMatch[0].length;
+            targetBlock = htmlContent.slice(blockStart, blockEnd);
+          }
+        }
+
+        const splitGridHtml = `
+<div class="split-media-grid${isReverse ? ' reverse' : ''}">
+  <div class="split-text-col">
+    ${targetBlock}
+  </div>
+  <div class="split-media-col">
+    ${mediaTag}${captionHtml}
+  </div>
+</div>`;
+
+        htmlContent = htmlContent.slice(0, blockStart) + splitGridHtml + htmlContent.slice(blockEnd);
+        modified = true;
+        summary = `Inserted new ${isVideo ? 'video' : (savedAssetPath.endsWith('.gif') ? 'animated GIF' : 'image')} and rearranged surrounding ${bounds.tagName} text into a responsive 2-column split layout.`;
+      }
+
+      // C: INSERT BELOW
+      else if (effectiveAction === 'insert_below') {
+        const bannerHtml = `\n<div class="media-banner-panel">\n  ${mediaTag}${captionHtml}\n</div>\n`;
+        htmlContent = htmlContent.slice(0, blockEnd) + bannerHtml + htmlContent.slice(blockEnd);
+        modified = true;
+        summary = `Inserted new ${isVideo ? 'video' : (savedAssetPath.endsWith('.gif') ? 'animated GIF' : 'image')} panel directly below the selected <${bounds.tagName}>.`;
+      }
+
+      // D: INSERT ABOVE
+      else if (effectiveAction === 'insert_above') {
+        const bannerHtml = `\n<div class="media-banner-panel">\n  ${mediaTag}${captionHtml}\n</div>\n`;
+        htmlContent = htmlContent.slice(0, blockStart) + bannerHtml + htmlContent.slice(blockStart);
+        modified = true;
+        summary = `Inserted new ${isVideo ? 'video' : (savedAssetPath.endsWith('.gif') ? 'animated GIF' : 'image')} panel directly above the selected <${bounds.tagName}>.`;
+      }
+    }
+  }
+
+  // 5. Named Section Scenario: "adjacent to deterministic by design section" (Prompt-based fallback)
+  if (!modified && savedAssetPath && (lowerPrompt.includes('deterministic') || lowerPrompt.includes('pipeline'))) {
     const pipeStageRegex = /<div class="pipe-stage[^"]*"[^>]*>([\s\S]*?)<\/div>/;
     if (pipeStageRegex.test(htmlContent)) {
-      htmlContent = htmlContent.replace(pipeStageRegex, (match) => {
+      htmlContent = htmlContent.replace(pipeStageRegex, () => {
         return `<div class="pipe-stage reveal" style="display:flex;align-items:center;justify-content:center;background:#0d141c;border-radius:18px;overflow:hidden;border:1px solid rgba(255,255,255,0.1);">
-        <img src="${assetToUse}" alt="Deterministic by design pipeline visualization" style="width:100%;height:100%;object-fit:cover;display:block;" />
+        ${mediaTag}
         <span class="tag">SurfaceWare Pipeline</span>
       </div>`;
       });
       modified = true;
-      summary = `Replaced the visual graphic adjacent to the 'Deterministic by Design' section on ${targetPage.file} with the new image (${assetToUse}).`;
+      summary = `Replaced the visual graphic adjacent to the 'Deterministic by Design' section on ${targetPage.file} with the new ${isVideo ? 'video' : 'image/GIF'} (${savedAssetPath}).`;
     }
   }
 
-  // 4. Scenario B: "change the wording on the home page at the very top" (Hero headline/kicker)
-  else if (
-    (lowerPrompt.includes('very top') || lowerPrompt.includes('headline') || lowerPrompt.includes('hero') || lowerPrompt.includes('wording'))
-    && targetPage.id === 'home'
-  ) {
-    // Extract new text from prompt or attachment text
+  // 6. Generic Media Insertion Fallback (if user attached media without selecting element)
+  if (!modified && savedAssetPath) {
+    const wrapRegex = /(<section[^>]*class="[^"]*hero[^"]*"[^>]*>[\s\S]*?<div class="wrap"[^>]*>)/i;
+    if (wrapRegex.test(htmlContent)) {
+      htmlContent = htmlContent.replace(wrapRegex, `$1\n<div class="media-banner-panel">\n  ${mediaTag}\n</div>\n`);
+      modified = true;
+      summary = `Inserted new ${isVideo ? 'video' : 'image/GIF'} into the hero section of ${targetPage.file}.`;
+    }
+  }
+
+  // 7. Text Editing: "change the wording at the very top" (Hero headline/kicker)
+  if (!modified && (lowerPrompt.includes('very top') || lowerPrompt.includes('headline') || lowerPrompt.includes('hero') || lowerPrompt.includes('wording'))) {
     let newHeadline = null;
     let newKicker = null;
 
-    // Check if user quoted text e.g. "..."
     const quotedMatches = prompt.match(/["“]([^"”]+)["”]/g);
     if (quotedMatches && quotedMatches.length > 0) {
       newHeadline = quotedMatches[0].replace(/["“”]/g, '').trim();
-      if (quotedMatches.length > 1) {
-        newKicker = quotedMatches[1].replace(/["“”]/g, '').trim();
-      }
+      if (quotedMatches.length > 1) newKicker = quotedMatches[1].replace(/["“”]/g, '').trim();
     } else {
-      // Common clean phrases
       const afterReflect = prompt.match(/reflect(?:ing)?\s+(?:messaging\s+)?(?:like\s+|as\s+|in\s+)?[:\-]?\s*([A-Za-z0-9\s.,'’—–-]+)/i);
-      if (afterReflect) {
-        newHeadline = afterReflect[1].trim();
-      }
-    }
-
-    if (!newHeadline && attachment && attachment.textContent) {
-      const lines = attachment.textContent.split('\n').map(l => l.trim()).filter(Boolean);
-      if (lines.length > 0) newHeadline = lines[0];
-      if (lines.length > 1) newKicker = lines[1];
+      if (afterReflect) newHeadline = afterReflect[1].trim();
     }
 
     if (newHeadline) {
-      // Replace hero h1
       const h1Regex = /<h1 class="h-hero[^"]*"[^>]*>[\s\S]*?<\/h1>/;
       if (h1Regex.test(htmlContent)) {
         htmlContent = htmlContent.replace(h1Regex, `<h1 class="h-hero reveal d1">${newHeadline}</h1>`);
         modified = true;
-        summary = `Updated the main hero headline at the top of the Home page to: "${newHeadline}".`;
+        summary = `Updated the main hero headline on ${targetPage.file} to: "${newHeadline}".`;
       }
       if (newKicker) {
         const kickerRegex = /<p class="kicker[^"]*"[^>]*>[\s\S]*?<\/p>/;
@@ -139,7 +416,7 @@ async function processExecutiveEdit({ prompt, targetPageId, selectedElement, att
     }
   }
 
-  // 5. Scenario C: General Text / Heading / CTA Replacement
+  // 8. General Text Replacement via Quotes: "replace X with Y"
   if (!modified) {
     const quoted = prompt.match(/["“]([^"”]+)["”]\s*(?:to|with|into)\s*["“]([^"”]+)["”]/i);
     if (quoted) {
@@ -153,29 +430,11 @@ async function processExecutiveEdit({ prompt, targetPageId, selectedElement, att
     }
   }
 
-  // 6. Scenario D: Targeted Element Edit via Visual Inspector Selection
-  if (!modified && selectedElement && selectedElement.text && selectedElement.newText) {
-    if (htmlContent.includes(selectedElement.text)) {
-      htmlContent = htmlContent.replace(selectedElement.text, selectedElement.newText);
-      modified = true;
-      summary = `Updated inspected element on ${targetPage.file} with new content.`;
-    }
-  }
-
-  // 7. Fallback: If OpenAI or Gemini API key is provided, perform deep LLM AST transformation
-  if (!modified && process.env.GEMINI_API_KEY) {
-    try {
-      summary = await runLlmTransformation({ prompt, htmlContent, targetPage, savedAssetPath });
-      modified = true;
-    } catch (e) {
-      console.warn("LLM transformation error:", e.message);
-    }
-  }
-
+  // 9. Save Changes
   if (modified) {
     fs.writeFileSync(targetFilePath, htmlContent, 'utf-8');
   } else {
-    summary = `Understood the request, but could not locate the exact element on ${targetPage.file}. Try selecting the element directly in the Visual Inspector on the right, or quote the exact text to replace.`;
+    summary = `Could not automatically position the new media or locate the text. Please click on the target section in the preview to lock it, select the layout action (Beside, Below, Above, or Replace), and apply.`;
   }
 
   const gitDiff = getUncommittedDiff();
@@ -186,7 +445,8 @@ async function processExecutiveEdit({ prompt, targetPageId, selectedElement, att
     targetPage: targetPage.file,
     pageUrl: targetPage.url,
     diff: gitDiff,
-    savedAsset: savedAssetPath
+    savedAsset: savedAssetPath,
+    isVideo
   };
 }
 
@@ -195,19 +455,19 @@ async function processExecutiveEdit({ prompt, targetPageId, selectedElement, att
  */
 function getUncommittedDiff() {
   try {
-    return execSync('git diff --stat -p', { cwd: ROOT_DIR, encoding: 'utf-8' });
+    return execSync('git diff --stat -p -- *.html styles.css', { cwd: ROOT_DIR, encoding: 'utf-8' });
   } catch (e) {
     return 'No git diff available.';
   }
 }
 
 /**
- * Discard uncommitted sandbox changes
+ * Discard uncommitted sandbox website changes (leaves studio code intact)
  */
 function revertSandbox() {
   try {
-    execSync('git checkout .', { cwd: ROOT_DIR });
-    return { success: true, message: 'All sandbox changes have been reverted to pristine git state.' };
+    execSync('git checkout -- *.html styles.css', { cwd: ROOT_DIR });
+    return { success: true, message: 'All website sandbox pages have been reverted to pristine git state.' };
   } catch (e) {
     return { success: false, error: e.message };
   }
@@ -253,6 +513,7 @@ async function publishChanges({ target, commitMessage }) {
 }
 
 module.exports = {
+  saveUploadedAsset,
   processExecutiveEdit,
   getUncommittedDiff,
   revertSandbox,

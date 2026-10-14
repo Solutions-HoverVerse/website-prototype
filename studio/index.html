@@ -229,6 +229,36 @@
     }
     .selected-tag-badge span.close { cursor: pointer; font-weight: bold; }
 
+    .layout-actions-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 2px;
+    }
+    .layout-pill {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 5px 9px;
+      border-radius: 6px;
+      font-size: 11px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.2s;
+    }
+    .layout-pill:hover {
+      border-color: var(--emerald);
+      color: var(--text);
+    }
+    .layout-pill.active {
+      background: rgba(18, 160, 106, 0.2);
+      border-color: var(--emerald);
+      color: #2DD68C;
+      font-weight: 600;
+    }
+
     .attachment-preview {
       display: none;
       align-items: center;
@@ -239,11 +269,24 @@
       border-radius: 8px;
       font-size: 12px;
     }
-    .attachment-preview img {
-      width: 32px;
-      height: 32px;
+    .attachment-preview img,
+    .attachment-preview video {
+      width: 36px;
+      height: 36px;
       object-fit: cover;
       border-radius: 4px;
+      background: #000;
+      border: 1px solid var(--border);
+    }
+    .file-format-badge {
+      font-size: 10px;
+      font-weight: bold;
+      text-transform: uppercase;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(18, 160, 106, 0.2);
+      color: #2DD68C;
+      border: 1px solid rgba(18, 160, 106, 0.4);
     }
 
     .input-box {
@@ -492,26 +535,50 @@
         </div>
       </div>
 
-      <div class="chat-input-area">
+      <div class="chat-input-area" id="dropArea">
         <div class="selected-tag-badge" id="selectedBadge">
           <span id="selectedLabel">Selected: .pipe-stage</span>
           <span class="close" onclick="clearSelectedElement()">&times;</span>
         </div>
 
+        <!-- Layout Action Selector Bar -->
+        <div class="layout-actions-bar" id="layoutActionsBar">
+          <button type="button" class="layout-pill active" data-action="insert_beside" onclick="selectLayoutAction('insert_beside')">
+            <span>◫ Split (Media Right)</span>
+          </button>
+          <button type="button" class="layout-pill" data-action="insert_beside_left" onclick="selectLayoutAction('insert_beside_left')">
+            <span>◫ Split (Media Left)</span>
+          </button>
+          <button type="button" class="layout-pill" data-action="insert_below" onclick="selectLayoutAction('insert_below')">
+            <span>⬇ Below (Banner)</span>
+          </button>
+          <button type="button" class="layout-pill" data-action="insert_above" onclick="selectLayoutAction('insert_above')">
+            <span>⬆ Above (Banner)</span>
+          </button>
+          <button type="button" class="layout-pill" data-action="replace" onclick="selectLayoutAction('replace')">
+            <span>🔄 Replace</span>
+          </button>
+          <button type="button" class="layout-pill" data-action="auto" onclick="selectLayoutAction('auto')">
+            <span>🪄 Auto</span>
+          </button>
+        </div>
+
         <div class="attachment-preview" id="attachmentPreview">
-          <img id="attachmentThumb" src="" alt="preview" />
-          <span id="attachmentName" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">image.jpg</span>
-          <span style="cursor:pointer;color:#DC2626;" onclick="clearAttachment()">&times;</span>
+          <img id="attachmentThumbImg" src="" alt="preview" style="display:none;" />
+          <video id="attachmentThumbVideo" src="" autoplay loop muted playsinline style="display:none;"></video>
+          <span class="file-format-badge" id="attachmentBadge">GIF</span>
+          <span id="attachmentName" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">image.gif</span>
+          <span style="cursor:pointer;color:#DC2626;font-size:16px;font-weight:bold;margin-left:4px;" onclick="clearAttachment()">&times;</span>
         </div>
 
         <div class="input-box">
-          <textarea id="promptInput" placeholder="Describe the change you want to make in plain English..."></textarea>
+          <textarea id="promptInput" placeholder="Describe the change, or lock an element, choose layout action & apply..."></textarea>
           <div class="input-actions">
             <button class="attach-btn" onclick="document.getElementById('fileInput').click()">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
-              <span>Attach Image / File</span>
+              <span>Attach Image / Video / GIF</span>
             </button>
-            <input type="file" id="fileInput" accept="image/*,.txt,.md,.pdf" onchange="handleFileSelected(event)" />
+            <input type="file" id="fileInput" accept="image/*,video/*,.gif,.mp4,.webm,.mov,.png,.jpg,.jpeg,.webp,.svg,.avif" onchange="handleFileSelected(event)" />
             <button class="btn btn-primary" id="sendBtn" onclick="submitEdit()">Apply Change</button>
           </div>
         </div>
@@ -609,6 +676,16 @@
       frame.contentWindow.postMessage({ type: 'HV_TOGGLE_INSPECTOR', enabled: inspectorActive }, '*');
     }
 
+    let currentActionType = 'insert_beside';
+
+    function selectLayoutAction(action) {
+      currentActionType = action;
+      document.querySelectorAll('.layout-pill').forEach(pill => {
+        if (pill.dataset.action === action) pill.classList.add('active');
+        else pill.classList.remove('active');
+      });
+    }
+
     // Handle messages from the iframe (visual point-and-click element selector)
     window.addEventListener('message', (e) => {
       if (!e.data) return;
@@ -624,9 +701,19 @@
 
         const badge = document.getElementById('selectedBadge');
         const label = document.getElementById('selectedLabel');
-        const previewText = selectedElementInfo.text ? `"${selectedElementInfo.text.slice(0, 32)}..."` : (selectedElementInfo.id ? `#${selectedElementInfo.id}` : selectedElementInfo.className);
+        const previewText = selectedElementInfo.firstLine 
+          ? `"${selectedElementInfo.firstLine.slice(0, 36)}..."`
+          : (selectedElementInfo.id ? `#${selectedElementInfo.id}` : selectedElementInfo.className);
         label.innerHTML = `🔒 <strong>Locked:</strong> &lt;${selectedElementInfo.tag}&gt; ${previewText}`;
         badge.style.display = 'flex';
+
+        // Auto-select intuitive layout pill based on element tag
+        if (['img', 'video', 'canvas'].includes(selectedElementInfo.tag)) {
+          selectLayoutAction('replace');
+        } else {
+          selectLayoutAction('insert_beside');
+        }
+
         document.getElementById('promptInput').focus();
       } else if (e.data.type === 'HV_INSPECTOR_CANCELLED') {
         clearSelectedElement();
@@ -646,34 +733,113 @@
       frame.contentWindow.postMessage({ type: 'HV_CLEAR_SELECTION' }, '*');
     }
 
-    function handleFileSelected(event) {
-      const file = event.target.files[0];
+    async function processUploadedFile(file) {
       if (!file) return;
 
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        currentAttachment = {
-          name: file.name,
-          dataUrl: e.target.result,
-          textContent: file.type.startsWith('text') ? e.target.result : ''
-        };
-        document.getElementById('attachmentPreview').style.display = 'flex';
-        document.getElementById('attachmentName').innerText = file.name;
-        if (file.type.startsWith('image/')) {
-          document.getElementById('attachmentThumb').src = e.target.result;
-          document.getElementById('attachmentThumb').style.display = 'block';
+      const ext = file.name.split('.').pop().toLowerCase();
+      const isVideo = ['mp4', 'webm', 'mov', 'ogg'].includes(ext);
+      const isGif = ext === 'gif';
+
+      const previewDiv = document.getElementById('attachmentPreview');
+      const thumbImg = document.getElementById('attachmentThumbImg');
+      const thumbVideo = document.getElementById('attachmentThumbVideo');
+      const badge = document.getElementById('attachmentBadge');
+      const nameEl = document.getElementById('attachmentName');
+
+      badge.innerText = ext.toUpperCase();
+      nameEl.innerText = `${file.name} (${(file.size / (1024 * 1024)).toFixed(1)} MB)`;
+      previewDiv.style.display = 'flex';
+
+      const objectUrl = URL.createObjectURL(file);
+      if (isVideo) {
+        thumbImg.style.display = 'none';
+        thumbVideo.style.display = 'block';
+        thumbVideo.src = objectUrl;
+      } else {
+        thumbVideo.style.display = 'none';
+        thumbImg.style.display = 'block';
+        thumbImg.src = objectUrl;
+      }
+
+      // Stream upload directly to disk via raw stream endpoint for zero payload issues
+      try {
+        nameEl.innerText += ' [Uploading...]';
+        const uploadRes = await fetch(`/api/upload-raw?filename=${encodeURIComponent(file.name)}`, {
+          method: 'POST',
+          body: file
+        });
+        const uploadData = await uploadRes.json();
+        nameEl.innerText = file.name;
+        if (uploadData.success) {
+          currentAttachment = {
+            name: file.name,
+            assetPath: uploadData.assetPath,
+            isVideo: uploadData.isVideo,
+            isGif
+          };
         } else {
-          document.getElementById('attachmentThumb').style.display = 'none';
+          throw new Error(uploadData.error || 'Upload error');
         }
-      };
-      reader.readAsDataURL(file);
+      } catch (err) {
+        console.warn('Raw upload failed, falling back to base64 DataURL:', err);
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          currentAttachment = {
+            name: file.name,
+            dataUrl: e.target.result,
+            isVideo,
+            isGif
+          };
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+
+    function handleFileSelected(event) {
+      const file = event.target.files[0];
+      if (file) processUploadedFile(file);
     }
 
     function clearAttachment() {
       currentAttachment = null;
       document.getElementById('attachmentPreview').style.display = 'none';
       document.getElementById('fileInput').value = '';
+      const thumbVideo = document.getElementById('attachmentThumbVideo');
+      if (thumbVideo.src) {
+        URL.revokeObjectURL(thumbVideo.src);
+        thumbVideo.src = '';
+      }
     }
+
+    // Setup drag-and-drop & paste
+    window.addEventListener('DOMContentLoaded', () => {
+      const dropArea = document.getElementById('dropArea');
+      if (dropArea) {
+        ['dragenter', 'dragover'].forEach(name => {
+          dropArea.addEventListener(name, (e) => {
+            e.preventDefault();
+            dropArea.style.borderColor = 'var(--emerald)';
+          });
+        });
+        ['dragleave', 'drop'].forEach(name => {
+          dropArea.addEventListener(name, (e) => {
+            e.preventDefault();
+            dropArea.style.borderColor = '';
+          });
+        });
+        dropArea.addEventListener('drop', (e) => {
+          if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            processUploadedFile(e.dataTransfer.files[0]);
+          }
+        });
+      }
+
+      window.addEventListener('paste', (e) => {
+        if (e.clipboardData && e.clipboardData.files && e.clipboardData.files.length > 0) {
+          processUploadedFile(e.clipboardData.files[0]);
+        }
+      });
+    });
 
     async function submitEdit() {
       const promptInput = document.getElementById('promptInput');
@@ -683,7 +849,7 @@
       const activeTab = document.querySelector('.page-tab.active');
       const targetPageId = activeTab ? activeTab.innerText.toLowerCase() : 'home';
 
-      addMessage('user', prompt + (currentAttachment ? ` [Attached: ${currentAttachment.name}]` : ''));
+      addMessage('user', (prompt || 'Insert media') + (currentAttachment ? ` [Attached: ${currentAttachment.name}]` : ''));
       promptInput.value = '';
 
       const loadingMsg = addMessage('agent', 'Analyzing request, inspecting DOM, and updating sandbox...');
@@ -696,6 +862,8 @@
             prompt,
             targetPageId,
             selectedElement: selectedElementInfo,
+            actionType: currentActionType,
+            assetPath: currentAttachment ? currentAttachment.assetPath : null,
             attachment: currentAttachment
           })
         });
