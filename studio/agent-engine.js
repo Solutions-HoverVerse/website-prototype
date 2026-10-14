@@ -359,9 +359,109 @@ async function processElementResize({ targetPageId, selectedElement, styles }) {
 }
 
 /**
+ * Find enclosing split-media-grid or media-banner-panel for a given element range
+ */
+function findEnclosingGrid(html, bounds) {
+  if (!bounds) return null;
+  const maxLookback = 3500;
+  const searchStart = Math.max(0, bounds.start - maxLookback);
+  const sliceBefore = html.slice(searchStart, bounds.start);
+
+  const gridRegex = /<div\s+class=["']([^"']*split-media-grid[^"']*)["'][^>]*>/gi;
+  let lastMatch = null;
+  let match;
+  while ((match = gridRegex.exec(sliceBefore)) !== null) {
+    const openTagIdx = searchStart + match.index;
+    lastMatch = {
+      startIndex: openTagIdx,
+      openTag: match[0],
+      classAttr: match[1]
+    };
+  }
+  return lastMatch;
+}
+
+/**
+ * Persist visual element repositioning and text layout rearrangement
+ */
+async function processElementReposition({ targetPageId, selectedElement, reposition }) {
+  const manifest = loadManifest();
+  let targetPage = null;
+  if (targetPageId) {
+    targetPage = manifest.pages.find(p => p.id === targetPageId || p.file === targetPageId);
+  }
+  if (!targetPage) targetPage = manifest.pages.find(p => p.id === 'home');
+
+  const targetFilePath = path.join(ROOT_DIR, targetPage.file);
+  if (!fs.existsSync(targetFilePath)) {
+    throw new Error(`Target file ${targetPage.file} does not exist.`);
+  }
+
+  const originalHtml = fs.readFileSync(targetFilePath, 'utf-8');
+  let updatedHtml = originalHtml;
+  let summary = '';
+
+  const bounds = findElementRange(originalHtml, selectedElement);
+  if (!bounds) {
+    return { success: false, summary: 'Could not locate element to reposition in HTML.', canUndo: canUndo() };
+  }
+
+  const gridInfo = findEnclosingGrid(originalHtml, bounds);
+  if (gridInfo) {
+    let classList = gridInfo.classAttr.split(/\s+/).filter(c => c && !['align-start', 'align-center', 'align-end'].includes(c));
+
+    if (reposition.alignment) {
+      classList.push(`align-${reposition.alignment}`);
+    } else {
+      classList.push('align-center');
+    }
+
+    if (reposition.column === 'left') {
+      if (!classList.includes('reverse')) classList.push('reverse');
+    } else if (reposition.column === 'right') {
+      classList = classList.filter(c => c !== 'reverse');
+    }
+
+    const newClassAttr = classList.join(' ');
+    const newOpenTag = gridInfo.openTag.replace(gridInfo.classAttr, newClassAttr);
+
+    updatedHtml = originalHtml.slice(0, gridInfo.startIndex) + newOpenTag + originalHtml.slice(gridInfo.startIndex + gridInfo.openTag.length);
+
+    const alignDesc = reposition.alignment === 'end' 
+      ? 'lower position (bottom-aligned)' 
+      : (reposition.alignment === 'start' ? 'higher position (top-aligned)' : 'centered alignment');
+    const colDesc = reposition.column === 'left' ? 'left column' : 'right column';
+
+    summary = `Moved image to ${alignDesc} in ${colDesc} on ${targetPage.file}. Surrounding text rearranged live to accommodate.`;
+  } else {
+    summary = `Repositioned element <${bounds.tagName}> on ${targetPage.file}.`;
+  }
+
+  if (updatedHtml !== originalHtml) {
+    pushUndoSnapshot(targetPage.file, originalHtml, updatedHtml, summary);
+    fs.writeFileSync(targetFilePath, updatedHtml, 'utf-8');
+    return {
+      success: true,
+      summary,
+      targetPage: targetPage.file,
+      pageUrl: targetPage.url,
+      canUndo: true,
+      diff: getUncommittedDiff()
+    };
+  } else {
+    return {
+      success: true,
+      summary: summary || 'Element is already in requested position.',
+      targetPage: targetPage.file,
+      canUndo: canUndo()
+    };
+  }
+}
+
+/**
  * Handle executive natural language edit & DOM rearrangement
  */
-async function processExecutiveEdit({ prompt = '', targetPageId, selectedElement, actionType = 'auto', attachment, assetPath }) {
+async function processExecutiveEdit({ prompt = '', targetPageId, selectedElement, actionType = 'auto', attachment, assetPath, aspectRatio }) {
   const manifest = loadManifest();
   const lowerPrompt = prompt.toLowerCase();
 
@@ -402,13 +502,41 @@ async function processExecutiveEdit({ prompt = '', targetPageId, selectedElement
     isVideo = ['mp4', 'webm', 'mov', 'ogg'].includes(ext);
   }
 
-  // Generate appropriate HTML5 media tag (video or image/GIF)
+  // Calculate & Normalize Aspect Ratio (guarantees zero truncation across landscape, portrait, square, custom)
+  let rawRatio = aspectRatio || (attachment && attachment.aspectRatio) || 'auto';
+  let cssRatio = 'auto';
+  let ratioClass = '';
+
+  if (rawRatio === '16:9' || rawRatio === '16/9') {
+    cssRatio = '16 / 9';
+    ratioClass = ' ratio-16-9';
+  } else if (rawRatio === '9:16' || rawRatio === '9/16') {
+    cssRatio = '9 / 16';
+    ratioClass = ' ratio-9-16';
+  } else if (rawRatio === '1:1' || rawRatio === '1/1') {
+    cssRatio = '1 / 1';
+    ratioClass = ' ratio-1-1';
+  } else if (rawRatio === '4:3' || rawRatio === '4/3') {
+    cssRatio = '4 / 3';
+    ratioClass = ' ratio-4-3';
+  } else if (rawRatio === '21:9' || rawRatio === '21/9') {
+    cssRatio = '21 / 9';
+    ratioClass = ' ratio-21-9';
+  } else if (rawRatio && (rawRatio.includes('/') || rawRatio.includes(':'))) {
+    cssRatio = rawRatio.replace(':', ' / ');
+  } else if (attachment && attachment.naturalWidth && attachment.naturalHeight) {
+    cssRatio = `${attachment.naturalWidth} / ${attachment.naturalHeight}`;
+  }
+
+  const aspectStyle = cssRatio !== 'auto' ? `aspect-ratio:${cssRatio};` : '';
+
+  // Generate appropriate HTML5 media tag (video or image/GIF) with object-fit: contain to ensure zero truncation
   let mediaTag = '';
   if (savedAssetPath) {
     if (isVideo) {
-      mediaTag = `<video src="${savedAssetPath}" autoplay loop muted playsinline controls style="width:100%;height:100%;max-height:480px;object-fit:cover;display:block;border-radius:16px;"></video>`;
+      mediaTag = `<video src="${savedAssetPath}" autoplay loop muted playsinline controls style="width:100%;height:auto;${aspectStyle}object-fit:contain;display:block;border-radius:16px;"></video>`;
     } else {
-      mediaTag = `<img src="${savedAssetPath}" alt="Hoververse interactive visual" style="width:100%;height:100%;max-height:480px;object-fit:cover;display:block;border-radius:16px;" loading="lazy" />`;
+      mediaTag = `<img src="${savedAssetPath}" alt="Hoververse interactive visual" style="width:100%;height:auto;${aspectStyle}object-fit:contain;display:block;border-radius:16px;" loading="lazy" />`;
     }
   }
 
@@ -461,6 +589,13 @@ async function processExecutiveEdit({ prompt = '', targetPageId, selectedElement
       else if (effectiveAction === 'insert_beside' || effectiveAction === 'insert_beside_left') {
         const isReverse = effectiveAction === 'insert_beside_left' || lowerPrompt.includes('media left') || lowerPrompt.includes('left side');
 
+        let initialAlign = 'align-center';
+        if (lowerPrompt.includes('lower') || lowerPrompt.includes('bottom') || lowerPrompt.includes('low') || (attachment && attachment.alignment === 'end')) {
+          initialAlign = 'align-end';
+        } else if (lowerPrompt.includes('higher') || lowerPrompt.includes('upper') || lowerPrompt.includes('top') || (attachment && attachment.alignment === 'start')) {
+          initialAlign = 'align-start';
+        }
+
         // Contextual grouping: if user clicked on <p>, include preceding <h2>/<h3>/kicker if directly adjacent
         if (bounds.tagName === 'p') {
           const textBefore = htmlContent.slice(Math.max(0, blockStart - 350), blockStart);
@@ -480,11 +615,11 @@ async function processExecutiveEdit({ prompt = '', targetPageId, selectedElement
         }
 
         const splitGridHtml = `
-<div class="split-media-grid${isReverse ? ' reverse' : ''}">
+<div class="split-media-grid ${initialAlign}${isReverse ? ' reverse' : ''}">
   <div class="split-text-col">
     ${targetBlock}
   </div>
-  <div class="split-media-col">
+  <div class="split-media-col${ratioClass}" style="${aspectStyle}">
     ${mediaTag}${captionHtml}
   </div>
 </div>`;
@@ -496,7 +631,7 @@ async function processExecutiveEdit({ prompt = '', targetPageId, selectedElement
 
       // C: INSERT BELOW
       else if (effectiveAction === 'insert_below') {
-        const bannerHtml = `\n<div class="media-banner-panel">\n  ${mediaTag}${captionHtml}\n</div>\n`;
+        const bannerHtml = `\n<div class="media-banner-panel${ratioClass}" style="${aspectStyle}">\n  ${mediaTag}${captionHtml}\n</div>\n`;
         htmlContent = htmlContent.slice(0, blockEnd) + bannerHtml + htmlContent.slice(blockEnd);
         modified = true;
         summary = `Inserted new ${isVideo ? 'video' : (savedAssetPath.endsWith('.gif') ? 'animated GIF' : 'image')} panel directly below the selected <${bounds.tagName}>.`;
@@ -504,7 +639,7 @@ async function processExecutiveEdit({ prompt = '', targetPageId, selectedElement
 
       // D: INSERT ABOVE
       else if (effectiveAction === 'insert_above') {
-        const bannerHtml = `\n<div class="media-banner-panel">\n  ${mediaTag}${captionHtml}\n</div>\n`;
+        const bannerHtml = `\n<div class="media-banner-panel${ratioClass}" style="${aspectStyle}">\n  ${mediaTag}${captionHtml}\n</div>\n`;
         htmlContent = htmlContent.slice(0, blockStart) + bannerHtml + htmlContent.slice(blockStart);
         modified = true;
         summary = `Inserted new ${isVideo ? 'video' : (savedAssetPath.endsWith('.gif') ? 'animated GIF' : 'image')} panel directly above the selected <${bounds.tagName}>.`;
@@ -671,6 +806,7 @@ module.exports = {
   saveUploadedAsset,
   processExecutiveEdit,
   processElementResize,
+  processElementReposition,
   undoLastChange,
   canUndo,
   getUncommittedDiff,

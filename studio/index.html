@@ -259,7 +259,9 @@
       font-weight: 600;
     }
 
-    .resize-toolbar {
+    .resize-toolbar,
+    .position-toolbar,
+    .aspect-ratio-bar {
       display: none;
       align-items: center;
       flex-wrap: wrap;
@@ -270,7 +272,9 @@
       border-radius: 8px;
       font-size: 11px;
     }
-    .resize-pill {
+    .resize-pill,
+    .pos-pill,
+    .aspect-pill {
       background: var(--bg);
       border: 1px solid var(--border);
       color: var(--text-muted);
@@ -280,9 +284,17 @@
       cursor: pointer;
       transition: all 0.2s;
     }
-    .resize-pill:hover {
+    .resize-pill:hover,
+    .pos-pill:hover,
+    .aspect-pill:hover {
       border-color: var(--emerald);
       color: var(--text);
+    }
+    .aspect-pill.active {
+      background: rgba(18, 160, 106, 0.2);
+      border-color: var(--emerald);
+      color: #2DD68C;
+      font-weight: 600;
     }
 
     button#undoBtn:disabled {
@@ -588,6 +600,15 @@
           <button type="button" class="resize-pill" onclick="quickResize({ maxHeight: '540px' })">Tall View</button>
         </div>
 
+        <!-- Position & Live Text Reflow Toolbar -->
+        <div class="position-toolbar" id="positionToolbar">
+          <span style="font-size:11px;color:var(--text-muted);font-weight:600;">Position & Reflow:</span>
+          <button type="button" class="pos-pill" onclick="quickReposition('end')">⬇ Lower (Bottom)</button>
+          <button type="button" class="pos-pill" onclick="quickReposition('center')">⬍ Center</button>
+          <button type="button" class="pos-pill" onclick="quickReposition('start')">⬆ Higher (Top)</button>
+          <button type="button" class="pos-pill" onclick="quickReposition(null, true)">◫ Flip Left / Right</button>
+        </div>
+
         <!-- Layout Action Selector Bar -->
         <div class="layout-actions-bar" id="layoutActionsBar">
           <button type="button" class="layout-pill active" data-action="insert_beside" onclick="selectLayoutAction('insert_beside')">
@@ -616,6 +637,16 @@
           <span class="file-format-badge" id="attachmentBadge">GIF</span>
           <span id="attachmentName" style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">image.gif</span>
           <span style="cursor:pointer;color:#DC2626;font-size:16px;font-weight:bold;margin-left:4px;" onclick="clearAttachment()">&times;</span>
+        </div>
+
+        <!-- Aspect Ratio & Non-Truncated Panel Format -->
+        <div class="aspect-ratio-bar" id="aspectRatioBar">
+          <span style="font-size:11px;color:var(--text-muted);font-weight:600;">Panel Format:</span>
+          <button type="button" class="aspect-pill active" id="aspectAutoPill" data-ratio="auto" onclick="selectAspectRatio('auto')">⚡ Auto Intrinsic</button>
+          <button type="button" class="aspect-pill" data-ratio="16/9" onclick="selectAspectRatio('16/9')">📺 16:9 Landscape</button>
+          <button type="button" class="aspect-pill" data-ratio="9/16" onclick="selectAspectRatio('9/16')">📱 9:16 Portrait</button>
+          <button type="button" class="aspect-pill" data-ratio="1/1" onclick="selectAspectRatio('1/1')">⏹️ 1:1 Square</button>
+          <button type="button" class="aspect-pill" data-ratio="4/3" onclick="selectAspectRatio('4/3')">🖼️ 4:3</button>
         </div>
 
         <div class="input-box">
@@ -736,6 +767,28 @@
     }
 
     let currentActionType = 'insert_beside';
+    let selectedAspectRatio = 'auto';
+
+    function selectAspectRatio(ratio) {
+      selectedAspectRatio = ratio;
+      document.querySelectorAll('.aspect-pill').forEach(pill => {
+        if (pill.dataset.ratio === ratio) pill.classList.add('active');
+        else pill.classList.remove('active');
+      });
+    }
+
+    function quickReposition(alignment, toggleColumn) {
+      const frame = document.getElementById('sandboxFrame');
+      if (frame && frame.contentWindow) {
+        frame.contentWindow.postMessage({
+          type: 'HV_APPLY_REPOSITION',
+          reposition: {
+            alignment: alignment || null,
+            toggleColumn: !!toggleColumn
+          }
+        }, '*');
+      }
+    }
 
     function selectLayoutAction(action) {
       currentActionType = action;
@@ -768,6 +821,10 @@
 
         // Show resize toolbar when element is locked
         const resizeToolbar = document.getElementById('resizeToolbar');
+        const posToolbar = document.getElementById('positionToolbar');
+        const tag = (selectedElementInfo.tag || '').toLowerCase();
+        const isMedia = ['img', 'video', 'canvas', 'figure'].includes(tag) || (selectedElementInfo.className && selectedElementInfo.className.includes('split-media-col'));
+
         if (selectedElementInfo.isText) {
           resizeToolbar.innerHTML = `
             <span style="font-size:11px;color:var(--text-muted);font-weight:600;">Text Scaling:</span>
@@ -777,6 +834,7 @@
             <button type="button" class="resize-pill" onclick="quickResize({ width: '75%' })">75% Wide</button>
             <button type="button" class="resize-pill" onclick="quickResize({ width: '50%' })">50% Wide</button>
           `;
+          if (posToolbar) posToolbar.style.display = 'none';
         } else {
           resizeToolbar.innerHTML = `
             <span style="font-size:11px;color:var(--text-muted);font-weight:600;">Media Resize & Crop:</span>
@@ -786,6 +844,7 @@
             <button type="button" class="resize-pill" onclick="quickResize({ maxHeight: '260px' })">Crop Compact</button>
             <button type="button" class="resize-pill" onclick="quickResize({ maxHeight: '540px' })">Tall View</button>
           `;
+          if (posToolbar) posToolbar.style.display = 'flex';
         }
         resizeToolbar.style.display = 'flex';
 
@@ -819,6 +878,28 @@
         } catch (err) {
           console.error('Resize error:', err);
         }
+      } else if (e.data.type === 'HV_ELEMENT_REPOSITIONED') {
+        // Element was moved / alignment reflowed live in the preview iframe
+        const activeTab = document.querySelector('.page-tab.active');
+        const targetPageId = activeTab ? activeTab.innerText.toLowerCase() : 'home';
+        try {
+          const res = await fetch('/api/reposition', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              targetPageId,
+              selectedElement: e.data.info,
+              reposition: e.data.reposition
+            })
+          });
+          const data = await res.json();
+          if (data.success) {
+            updateUndoButton(true);
+            addMessage('agent', `✓ <strong>Live Text Reflowed:</strong> ${data.summary}`);
+          }
+        } catch (err) {
+          console.error('Reposition error:', err);
+        }
       } else if (e.data.type === 'HV_INSPECTOR_CANCELLED') {
         clearSelectedElement();
       }
@@ -834,6 +915,8 @@
       inspectorActive = false;
       document.getElementById('selectedBadge').style.display = 'none';
       document.getElementById('resizeToolbar').style.display = 'none';
+      const posToolbar = document.getElementById('positionToolbar');
+      if (posToolbar) posToolbar.style.display = 'none';
       const btn = document.getElementById('inspectorToggle');
       btn.classList.remove('active');
       btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20M2 12h20"/></svg><span>Point & Click Inspector</span>`;
@@ -841,6 +924,21 @@
       btn.style.color = '';
       const frame = document.getElementById('sandboxFrame');
       frame.contentWindow.postMessage({ type: 'HV_CLEAR_SELECTION' }, '*');
+    }
+
+    function updateAspectPillsForDimensions(w, h) {
+      const bar = document.getElementById('aspectRatioBar');
+      if (bar) bar.style.display = 'flex';
+      const autoPill = document.getElementById('aspectAutoPill');
+      if (autoPill) {
+        autoPill.innerText = `⚡ Auto Intrinsic (${w}×${h})`;
+      }
+      const ratio = w / Math.max(1, h);
+      if (Math.abs(ratio - 16/9) < 0.08) selectAspectRatio('16/9');
+      else if (Math.abs(ratio - 9/16) < 0.08) selectAspectRatio('9/16');
+      else if (Math.abs(ratio - 1) < 0.08) selectAspectRatio('1/1');
+      else if (Math.abs(ratio - 4/3) < 0.08) selectAspectRatio('4/3');
+      else selectAspectRatio('auto');
     }
 
     async function processUploadedFile(file) {
@@ -865,10 +963,34 @@
         thumbImg.style.display = 'none';
         thumbVideo.style.display = 'block';
         thumbVideo.src = objectUrl;
+        const v = document.createElement('video');
+        v.src = objectUrl;
+        v.onloadedmetadata = () => {
+          const w = v.videoWidth || 16;
+          const h = v.videoHeight || 9;
+          if (currentAttachment) {
+            currentAttachment.naturalWidth = w;
+            currentAttachment.naturalHeight = h;
+            currentAttachment.aspectRatio = `${w}/${h}`;
+          }
+          updateAspectPillsForDimensions(w, h);
+        };
       } else {
         thumbVideo.style.display = 'none';
         thumbImg.style.display = 'block';
         thumbImg.src = objectUrl;
+        const img = new Image();
+        img.src = objectUrl;
+        img.onload = () => {
+          const w = img.naturalWidth || 1;
+          const h = img.naturalHeight || 1;
+          if (currentAttachment) {
+            currentAttachment.naturalWidth = w;
+            currentAttachment.naturalHeight = h;
+            currentAttachment.aspectRatio = `${w}/${h}`;
+          }
+          updateAspectPillsForDimensions(w, h);
+        };
       }
 
       // Stream upload directly to disk via raw stream endpoint for zero payload issues
@@ -885,7 +1007,8 @@
             name: file.name,
             assetPath: uploadData.assetPath,
             isVideo: uploadData.isVideo,
-            isGif
+            isGif,
+            aspectRatio: selectedAspectRatio
           };
         } else {
           throw new Error(uploadData.error || 'Upload error');
@@ -898,7 +1021,8 @@
             name: file.name,
             dataUrl: e.target.result,
             isVideo,
-            isGif
+            isGif,
+            aspectRatio: selectedAspectRatio
           };
         };
         reader.readAsDataURL(file);
@@ -913,6 +1037,9 @@
     function clearAttachment() {
       currentAttachment = null;
       document.getElementById('attachmentPreview').style.display = 'none';
+      const bar = document.getElementById('aspectRatioBar');
+      if (bar) bar.style.display = 'none';
+      selectedAspectRatio = 'auto';
       document.getElementById('fileInput').value = '';
       const thumbVideo = document.getElementById('attachmentThumbVideo');
       if (thumbVideo.src) {
@@ -1007,6 +1134,7 @@
             targetPageId,
             selectedElement: selectedElementInfo,
             actionType: currentActionType,
+            aspectRatio: selectedAspectRatio,
             assetPath: currentAttachment ? currentAttachment.assetPath : null,
             attachment: currentAttachment
           })

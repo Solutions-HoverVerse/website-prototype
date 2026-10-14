@@ -73,6 +73,28 @@ const INJECTED_INSPECTOR_SCRIPT = `
     badge.innerText = 'Click to Select';
     overlay.appendChild(badge);
 
+    const moveHandle = document.createElement('div');
+    moveHandle.id = '__hv_move_handle';
+    moveHandle.style.position = 'absolute';
+    moveHandle.style.top = '-32px';
+    moveHandle.style.right = '0';
+    moveHandle.style.background = '#0D7A50';
+    moveHandle.style.color = '#FFFFFF';
+    moveHandle.style.fontSize = '11px';
+    moveHandle.style.fontWeight = '600';
+    moveHandle.style.fontFamily = 'system-ui, sans-serif';
+    moveHandle.style.padding = '3px 10px';
+    moveHandle.style.borderRadius = '4px';
+    moveHandle.style.whiteSpace = 'nowrap';
+    moveHandle.style.cursor = 'grab';
+    moveHandle.style.boxShadow = '0 2px 8px rgba(0,0,0,0.35)';
+    moveHandle.style.border = '1px solid #2DD68C';
+    moveHandle.style.display = 'none';
+    moveHandle.style.pointerEvents = 'auto';
+    moveHandle.style.userSelect = 'none';
+    moveHandle.innerHTML = '⠿ Grab to Move &amp; Reflow';
+    overlay.appendChild(moveHandle);
+
     function isTextBox(el) {
       if (!el) return false;
       const tag = el.tagName.toLowerCase();
@@ -256,6 +278,136 @@ const INJECTED_INSPECTOR_SCRIPT = `
       }, '*');
     }
 
+    // Move & Live Text Reflow Handler
+    let isMoving = false;
+    let startMoveX = 0, startMoveY = 0;
+    let currentGrid = null;
+    let isReverseAtStart = false;
+    let initialAlign = 'center';
+    let lastReposition = { alignment: 'center', column: 'right', stacked: 'none' };
+
+    function initMoveDrag(e) {
+      if (!lockedEl) return;
+      e.preventDefault();
+      e.stopPropagation();
+
+      isMoving = true;
+      startMoveX = e.clientX;
+      startMoveY = e.clientY;
+      moveHandle.style.cursor = 'grabbing';
+      document.body.style.userSelect = 'none';
+
+      currentGrid = lockedEl.closest('.split-media-grid') || (lockedEl.parentElement && lockedEl.parentElement.closest('.split-media-grid'));
+      if (currentGrid) {
+        isReverseAtStart = currentGrid.classList.contains('reverse');
+        if (currentGrid.classList.contains('align-start') || currentGrid.style.alignItems === 'start') {
+          initialAlign = 'start';
+        } else if (currentGrid.classList.contains('align-end') || currentGrid.style.alignItems === 'end') {
+          initialAlign = 'end';
+        } else {
+          initialAlign = 'center';
+        }
+      } else {
+        isReverseAtStart = false;
+        initialAlign = 'center';
+      }
+
+      lastReposition = {
+        alignment: initialAlign,
+        column: isReverseAtStart ? 'left' : 'right',
+        stacked: 'none'
+      };
+
+      window.addEventListener('mousemove', onMoveDrag, true);
+      window.addEventListener('mouseup', onMoveEnd, true);
+    }
+
+    function onMoveDrag(e) {
+      if (!isMoving || !lockedEl) return;
+      e.preventDefault();
+      e.stopPropagation();
+
+      const dx = e.clientX - startMoveX;
+      const dy = e.clientY - startMoveY;
+
+      let alignment = initialAlign;
+      let column = isReverseAtStart ? 'left' : 'right';
+      let stacked = 'none';
+
+      // Vertical repositioning threshold: dy > 30 is lower, dy < -30 is higher
+      if (dy > 30) {
+        alignment = 'end';
+      } else if (dy < -30) {
+        alignment = 'start';
+      } else {
+        alignment = 'center';
+      }
+
+      // Horizontal flip threshold: dx < -50 flips to left, dx > 50 flips to right
+      if (!isReverseAtStart) {
+        if (dx < -50) column = 'left';
+        else column = 'right';
+      } else {
+        if (dx > 50) column = 'right';
+        else column = 'left';
+      }
+
+      lastReposition = { alignment, column, stacked };
+
+      // Apply live text reflow in preview DOM immediately!
+      if (currentGrid) {
+        if (column === 'left') {
+          currentGrid.classList.add('reverse');
+        } else {
+          currentGrid.classList.remove('reverse');
+        }
+
+        currentGrid.classList.remove('align-start', 'align-center', 'align-end');
+        currentGrid.classList.add('align-' + alignment);
+        currentGrid.style.alignItems = alignment;
+      }
+
+      updateOverlayPos(lockedEl, true);
+
+      let alignLabel = alignment === 'end' ? '⬇ Lower Position (Bottom)' : (alignment === 'start' ? '⬆ Higher Position (Top)' : '⬍ Center');
+      let colLabel = column === 'left' ? '◫ Left Column' : '◫ Right Column';
+
+      moveHandle.innerHTML = '⠿ ' + alignLabel + ' · ' + colLabel;
+      badge.innerText = 'Live Reflowing Text: ' + alignLabel + ' · ' + colLabel;
+    }
+
+    function onMoveEnd(e) {
+      if (!isMoving) return;
+      isMoving = false;
+      moveHandle.style.cursor = 'grab';
+      document.body.style.userSelect = '';
+
+      window.removeEventListener('mousemove', onMoveDrag, true);
+      window.removeEventListener('mouseup', onMoveEnd, true);
+
+      if (!lockedEl) return;
+
+      moveHandle.innerHTML = '⠿ Grab to Move &amp; Reflow';
+      badge.innerText = '🔒 Locked: <' + lockedEl.tagName.toLowerCase() + '> · Repositioned';
+
+      const tag = lockedEl.tagName.toLowerCase();
+      window.parent.postMessage({
+        type: 'HV_ELEMENT_REPOSITIONED',
+        info: {
+          tag: tag,
+          id: lockedEl.id || '',
+          className: typeof lockedEl.className === 'string' ? lockedEl.className : '',
+          src: lockedEl.getAttribute('src') || lockedEl.src || '',
+          text: (lockedEl.innerText || lockedEl.textContent || '').trim().slice(0, 120),
+          firstLine: (lockedEl.innerText || '').split('\\n')[0].trim().slice(0, 80),
+          outerOpening: lockedEl.outerHTML ? (lockedEl.outerHTML.split('>')[0] + '>') : ''
+        },
+        reposition: lastReposition
+      }, '*');
+    }
+
+    moveHandle.addEventListener('mousedown', initMoveDrag);
+
     handleDefs.forEach(def => {
       const h = document.createElement('div');
       h.className = '__hv_resize_handle';
@@ -286,8 +438,17 @@ const INJECTED_INSPECTOR_SCRIPT = `
         overlay.style.boxShadow = '0 0 16px rgba(18, 160, 106, 0.45)';
         
         const isText = isTextBox(el);
+        const tag = el.tagName.toLowerCase();
+        const isMedia = ['img', 'video', 'canvas', 'figure'].includes(tag) || el.closest('.split-media-col') || el.closest('.media-banner-panel');
+
+        if (isMedia) {
+          moveHandle.style.display = 'block';
+        } else {
+          moveHandle.style.display = 'none';
+        }
+
         if (isText) {
-          badge.innerText = '🔒 Locked: <' + el.tagName.toLowerCase() + (el.id ? '#' + el.id : '') + '> · Corner drag scales font size';
+          badge.innerText = '🔒 Locked: <' + tag + (el.id ? '#' + el.id : '') + '> · Corner drag scales font size';
           badge.style.background = '#0D7A50';
           // Enable corners, DISABLE crop bars on text boxes
           handles.nw.style.display = 'block';
@@ -299,7 +460,7 @@ const INJECTED_INSPECTOR_SCRIPT = `
           handles.w.style.display = 'none';
           handles.e.style.display = 'none';
         } else {
-          badge.innerText = '🔒 Locked: <' + el.tagName.toLowerCase() + (el.id ? '#' + el.id : '') + '> · Drag corners to scale, sides to crop';
+          badge.innerText = '🔒 Locked: <' + tag + (el.id ? '#' + el.id : '') + '> · Drag corners to scale, top handle to move';
           badge.style.background = '#0D7A50';
           for (const k in handles) handles[k].style.display = 'block';
         }
@@ -310,6 +471,7 @@ const INJECTED_INSPECTOR_SCRIPT = `
         overlay.style.boxShadow = 'none';
         badge.innerText = 'Click to Select: <' + el.tagName.toLowerCase() + (el.id ? '#' + el.id : '') + '>';
         badge.style.background = '#12A06A';
+        moveHandle.style.display = 'none';
         for (const k in handles) handles[k].style.display = 'none';
       }
     }
@@ -328,9 +490,11 @@ const INJECTED_INSPECTOR_SCRIPT = `
         inspectorActive = !!e.data.enabled;
         if (inspectorActive) {
           lockedEl = null; // Clear previous lock to allow re-selection
+          moveHandle.style.display = 'none';
           for (const k in handles) handles[k].style.display = 'none';
         } else if (!lockedEl) {
           overlay.style.display = 'none';
+          moveHandle.style.display = 'none';
           for (const k in handles) handles[k].style.display = 'none';
           if (hoveredEl) hoveredEl.style.cursor = '';
         }
@@ -338,6 +502,7 @@ const INJECTED_INSPECTOR_SCRIPT = `
         lockedEl = null;
         inspectorActive = false;
         overlay.style.display = 'none';
+        moveHandle.style.display = 'none';
         for (const k in handles) handles[k].style.display = 'none';
         if (hoveredEl) hoveredEl.style.cursor = '';
       } else if (e.data.type === 'HV_APPLY_STYLE_PRESET') {
@@ -385,8 +550,45 @@ const INJECTED_INSPECTOR_SCRIPT = `
             overflow: lockedEl.style.overflow || ''
           }
         }, '*');
+      } else if (e.data.type === 'HV_APPLY_REPOSITION') {
+        if (!lockedEl) return;
+        const repo = e.data.reposition || {};
+        const grid = lockedEl.closest('.split-media-grid') || (lockedEl.parentElement && lockedEl.parentElement.closest('.split-media-grid'));
+        if (grid) {
+          if (repo.alignment) {
+            grid.classList.remove('align-start', 'align-center', 'align-end');
+            grid.classList.add('align-' + repo.alignment);
+            grid.style.alignItems = repo.alignment;
+          }
+          if (repo.toggleColumn) {
+            grid.classList.toggle('reverse');
+          } else if (repo.column === 'left') {
+            grid.classList.add('reverse');
+          } else if (repo.column === 'right') {
+            grid.classList.remove('reverse');
+          }
+          updateOverlayPos(lockedEl, true);
+          const isReverse = grid.classList.contains('reverse');
+          const currentAlign = grid.classList.contains('align-start') ? 'start' : (grid.classList.contains('align-end') ? 'end' : 'center');
+          window.parent.postMessage({
+            type: 'HV_ELEMENT_REPOSITIONED',
+            info: {
+              tag: lockedEl.tagName.toLowerCase(),
+              id: lockedEl.id || '',
+              className: typeof lockedEl.className === 'string' ? lockedEl.className : '',
+              src: lockedEl.getAttribute('src') || lockedEl.src || '',
+              text: (lockedEl.innerText || lockedEl.textContent || '').trim().slice(0, 120),
+              firstLine: (lockedEl.innerText || '').split('\\n')[0].trim().slice(0, 80),
+              outerOpening: lockedEl.outerHTML ? (lockedEl.outerHTML.split('>')[0] + '>') : ''
+            },
+            reposition: {
+              alignment: repo.alignment || currentAlign,
+              column: isReverse ? 'left' : 'right',
+              stacked: 'none'
+            }
+          }, '*');
+        }
       }
-    });
 
     document.addEventListener('mouseover', function(e) {
       if (!inspectorActive || lockedEl) return;
@@ -593,6 +795,25 @@ const server = http.createServer((req, res) => {
         const bodyStr = Buffer.concat(chunks).toString('utf-8');
         const payload = JSON.parse(bodyStr);
         const result = await agentEngine.processElementResize(payload);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(result));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, summary: err.message }));
+      }
+    });
+    return;
+  }
+
+  // 3c-2. Reposition & Live Text Reflow Endpoint
+  if (pathname === '/api/reposition' && req.method === 'POST') {
+    const chunks = [];
+    req.on('data', chunk => chunks.push(chunk));
+    req.on('end', async () => {
+      try {
+        const bodyStr = Buffer.concat(chunks).toString('utf-8');
+        const payload = JSON.parse(bodyStr);
+        const result = await agentEngine.processElementReposition(payload);
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(result));
       } catch (err) {
