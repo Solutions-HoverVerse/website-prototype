@@ -618,12 +618,21 @@ const INJECTED_INSPECTOR_SCRIPT = `
       const outerOpening = el.outerHTML ? el.outerHTML.split('>')[0] + '>' : '';
       const isText = isTextBox(el);
 
-      const pageFile = window.location.pathname.replace(/^\/preview\/?/, '') || 'index.html';
-      const cleanId = pageFile.replace(/\.html$/, '');
+      function getCleanPageInfo() {
+        var p = window.location.pathname || '';
+        if (p.indexOf('/preview/') === 0) p = p.substring(9);
+        if (p === '' || p === '/') p = 'index.html';
+        var id = p;
+        if (id.indexOf('.html') !== -1) id = id.replace('.html', '');
+        if (id === 'index' || id === '') id = 'home';
+        return { file: p, id: id };
+      }
+
+      const pageInfo = getCleanPageInfo();
 
       const info = {
-        pageFile: pageFile === '' ? 'index.html' : pageFile,
-        pageId: cleanId === 'index' || cleanId === '' ? 'home' : cleanId,
+        pageFile: pageInfo.file,
+        pageId: pageInfo.id,
         tag: el.tagName.toLowerCase(),
         id: el.id || '',
         className: typeof el.className === 'string' ? el.className : '',
@@ -655,14 +664,22 @@ const INJECTED_INSPECTOR_SCRIPT = `
 
     // Notify parent Studio of active page on load and navigation
     try {
-      const activeFile = window.location.pathname.replace(/^\/preview\/?/, '') || 'index.html';
-      const activeId = activeFile.replace(/\.html$/, '');
+      var pInfo = (function() {
+        var p = window.location.pathname || '';
+        if (p.indexOf('/preview/') === 0) p = p.substring(9);
+        if (p === '' || p === '/') p = 'index.html';
+        var id = p;
+        if (id.indexOf('.html') !== -1) id = id.replace('.html', '');
+        if (id === 'index' || id === '') id = 'home';
+        return { file: p, id: id };
+      })();
+
       window.parent.postMessage({
         type: 'HV_PAGE_LOADED',
         url: window.location.href,
         pathname: window.location.pathname,
-        pageFile: activeFile === '' ? 'index.html' : activeFile,
-        pageId: activeId === 'index' || activeId === '' ? 'home' : activeId
+        pageFile: pInfo.file,
+        pageId: pInfo.id
       }, '*');
     } catch (e) {}
   })();
