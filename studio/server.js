@@ -589,6 +589,7 @@ const INJECTED_INSPECTOR_SCRIPT = `
           }, '*');
         }
       }
+    });
 
     document.addEventListener('mouseover', function(e) {
       if (!inspectorActive || lockedEl) return;
