@@ -541,8 +541,8 @@
 
     <div class="header-controls">
       <select class="target-select" id="deployTarget">
-        <option value="cloudflare">Deploy Target: Cloudflare Pages / Static (Recommended)</option>
-        <option value="wix">Deploy Target: Wix Studio (Velo Custom Elements)</option>
+        <option value="wix" selected>Deploy Target: Wix Studio (Velo Custom Elements) [Default]</option>
+        <option value="cloudflare">Deploy Target: Cloudflare Pages / Static</option>
         <option value="all">Deploy Target: Both (Sync Cloudflare & Wix)</option>
       </select>
       <button class="btn btn-secondary" id="undoBtn" onclick="executeUndo()" title="Undo the most recent sandbox change" disabled>

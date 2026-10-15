@@ -817,29 +817,38 @@ async function publishChanges({ target, commitMessage }) {
   const msg = commitMessage || `feat(content): executive updates applied via Hoververse Studio [${new Date().toISOString()}]`;
   const results = { target, logs: [] };
 
-  if (target === 'cloudflare' || target === 'static' || target === 'all') {
-    try {
+  // Always commit & push primary repo assets so raw GitHub CDN URLs resolve
+  try {
+    const status = execSync('git status --porcelain', { cwd: ROOT_DIR, encoding: 'utf-8' });
+    if (status.trim().length > 0) {
       execSync('git add -A', { cwd: ROOT_DIR });
       execSync(`git commit -m "${msg}"`, { cwd: ROOT_DIR });
       execSync('git push origin main', { cwd: ROOT_DIR });
-      results.logs.push('Successfully pushed changes to primary git repository (Cloudflare Pages / Vercel auto-deploy).');
-    } catch (e) {
-      results.logs.push(`Cloudflare push log: ${e.message}`);
+      results.logs.push('Successfully synced uploaded assets and markup to primary git repository.');
+    } else {
+      results.logs.push('Primary git repository is already up to date.');
     }
+  } catch (e) {
+    results.logs.push(`Primary repository sync log: ${e.message}`);
   }
 
   if (target === 'wix' || target === 'all') {
     try {
       const wixCompiler = require('./wix-compiler');
       const compileReport = wixCompiler.compileAllPagesToWix();
-      results.logs.push(`Compiled ${compileReport.compiledCount} pages into Wix Velo Custom Elements.`);
+      results.logs.push(`Compiled ${compileReport.compiledCount} pages into optimized Wix Velo Custom Elements.`);
 
       const wixRepoDir = path.join(ROOT_DIR, 'wix-repo');
       if (fs.existsSync(wixRepoDir)) {
         execSync('git add -A', { cwd: wixRepoDir });
-        execSync(`git commit -m "${msg}"`, { cwd: wixRepoDir });
-        execSync('git push origin main', { cwd: wixRepoDir });
-        results.logs.push('Successfully pushed compiled components to Wix Studio GitHub repository.');
+        const wixStatus = execSync('git status --porcelain', { cwd: wixRepoDir, encoding: 'utf-8' });
+        if (wixStatus.trim().length > 0) {
+          execSync(`git commit -m "${msg}"`, { cwd: wixRepoDir });
+          execSync('git push origin main', { cwd: wixRepoDir });
+          results.logs.push('Successfully pushed compiled components to Wix Studio GitHub repository.');
+        } else {
+          results.logs.push('Wix Studio repository is already up to date.');
+        }
       }
     } catch (e) {
       results.logs.push(`Wix compilation/push log: ${e.message}`);
