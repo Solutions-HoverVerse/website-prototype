@@ -10,3 +10,6 @@ ehthumbs.db
 # Internal outputs & working artifacts
 Claude outputs/
 *.tmp
+wix-repo/
+website-edit-studio/
+

@@ -1,16 +1,15 @@
 {
   "name": "hoververse-website",
   "version": "2.0.0",
-  "description": "Hoververse Web Platform with Executive Studio Natural Language CMS",
+  "description": "Hoververse Web Platform — Self-contained static marketing site",
   "scripts": {
-    "studio": "node studio/server.js",
-    "start": "node studio/server.js"
+    "start": "npx serve .",
+    "serve": "npx serve ."
   },
   "keywords": [
     "hoververse",
     "spatial-computing",
-    "surfaceware",
-    "executive-studio"
+    "surfaceware"
   ],
   "author": "Hoververse",
   "license": "UNLICENSED"
