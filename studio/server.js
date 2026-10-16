@@ -588,6 +588,18 @@ const INJECTED_INSPECTOR_SCRIPT = `
             }
           }, '*');
         }
+      } else if (e.data.type === 'HV_RESTORE_SCROLL') {
+        var tY = typeof e.data.top === 'number' ? e.data.top : 0;
+        var tX = typeof e.data.left === 'number' ? e.data.left : 0;
+        window.scrollTo({ top: tY, left: tX, behavior: 'instant' });
+        if (document.documentElement) {
+          document.documentElement.scrollTop = tY;
+          if (tX) document.documentElement.scrollLeft = tX;
+        }
+        if (document.body) {
+          document.body.scrollTop = tY;
+          if (tX) document.body.scrollLeft = tX;
+        }
       }
     });
 
@@ -681,6 +693,43 @@ const INJECTED_INSPECTOR_SCRIPT = `
         pageFile: pInfo.file,
         pageId: pInfo.id
       }, '*');
+    } catch (e) {}
+
+    // Automatic scroll restoration on preview reload
+    try {
+      if ('scrollRestoration' in history) {
+        history.scrollRestoration = 'manual';
+      }
+      var urlParams = new URLSearchParams(window.location.search);
+      var targetY = parseInt(urlParams.get('hv_scroll_y'), 10);
+      var targetX = parseInt(urlParams.get('hv_scroll_x') || '0', 10);
+      if (isNaN(targetY)) {
+        var storedY = sessionStorage.getItem('hv_restore_scroll_y');
+        if (storedY) targetY = parseInt(storedY, 10);
+        var storedX = sessionStorage.getItem('hv_restore_scroll_x');
+        if (storedX) targetX = parseInt(storedX, 10);
+      }
+      if (!isNaN(targetY) && targetY > 0) {
+        var performScroll = function() {
+          window.scrollTo({ top: targetY, left: targetX || 0, behavior: 'instant' });
+          if (document.documentElement) {
+            document.documentElement.scrollTop = targetY;
+            if (targetX) document.documentElement.scrollLeft = targetX;
+          }
+          if (document.body) {
+            document.body.scrollTop = targetY;
+            if (targetX) document.body.scrollLeft = targetX;
+          }
+        };
+        performScroll();
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', performScroll);
+        }
+        window.addEventListener('load', performScroll);
+        [10, 30, 70, 150, 300, 600, 1000].forEach(function(d) {
+          setTimeout(performScroll, d);
+        });
+      }
     } catch (e) {}
   })();
 </script>

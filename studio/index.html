@@ -728,6 +728,11 @@
       document.querySelectorAll('.page-tab').forEach(t => t.classList.remove('active'));
       if (el) el.classList.add('active');
       clearSelectedElement();
+      pendingScrollRestoration = null;
+      try {
+        sessionStorage.removeItem('hv_restore_scroll_y');
+        sessionStorage.removeItem('hv_restore_scroll_x');
+      } catch (e) {}
       const frame = document.getElementById('sandboxFrame');
       frame.src = url;
     }
@@ -771,9 +776,80 @@
       if (frame) frame.style.width = width;
     }
 
-    function reloadPreview() {
+    let pendingScrollRestoration = null;
+
+    function getFrameScrollPos() {
       const frame = document.getElementById('sandboxFrame');
-      if (frame) frame.src = frame.src;
+      try {
+        if (frame && frame.contentWindow) {
+          const win = frame.contentWindow;
+          const doc = frame.contentDocument || win.document;
+          const y = win.scrollY ?? (doc && doc.documentElement ? doc.documentElement.scrollTop : 0) ?? (doc && doc.body ? doc.body.scrollTop : 0) ?? 0;
+          const x = win.scrollX ?? (doc && doc.documentElement ? doc.documentElement.scrollLeft : 0) ?? (doc && doc.body ? doc.body.scrollLeft : 0) ?? 0;
+          return { x: Math.max(0, x), y: Math.max(0, y) };
+        }
+      } catch (e) {}
+      return { x: 0, y: 0 };
+    }
+
+    function restoreFrameScroll(frame, targetY, targetX = 0) {
+      if (!frame || (targetY <= 0 && targetX <= 0)) return;
+      const attempts = [0, 20, 50, 100, 200, 350, 600, 1000];
+      attempts.forEach(delay => {
+        setTimeout(() => {
+          try {
+            if (frame && frame.contentWindow) {
+              frame.contentWindow.scrollTo({ top: targetY, left: targetX, behavior: 'instant' });
+              if (frame.contentDocument) {
+                if (frame.contentDocument.documentElement) frame.contentDocument.documentElement.scrollTop = targetY;
+                if (frame.contentDocument.body) frame.contentDocument.body.scrollTop = targetY;
+              }
+              frame.contentWindow.postMessage({ type: 'HV_RESTORE_SCROLL', top: targetY, left: targetX }, '*');
+            }
+          } catch (e) {}
+        }, delay);
+      });
+    }
+
+    function reloadPreview(targetUrl, preserveScroll = true, explicitScrollPos = null) {
+      const frame = document.getElementById('sandboxFrame');
+      if (!frame) return;
+
+      let scrollPos = explicitScrollPos;
+      if (!scrollPos && preserveScroll) {
+        scrollPos = getFrameScrollPos();
+      }
+
+      if (scrollPos && (scrollPos.y > 0 || scrollPos.x > 0)) {
+        pendingScrollRestoration = scrollPos;
+        try {
+          sessionStorage.setItem('hv_restore_scroll_y', String(scrollPos.y));
+          sessionStorage.setItem('hv_restore_scroll_x', String(scrollPos.x));
+        } catch (e) {}
+      } else if (!preserveScroll) {
+        pendingScrollRestoration = null;
+        try {
+          sessionStorage.removeItem('hv_restore_scroll_y');
+          sessionStorage.removeItem('hv_restore_scroll_x');
+        } catch (e) {}
+      }
+
+      const nextUrl = targetUrl || frame.src || '/preview/index.html';
+      const urlObj = new URL(nextUrl, window.location.origin);
+      urlObj.searchParams.set('t', Date.now().toString());
+      if (pendingScrollRestoration && pendingScrollRestoration.y > 0) {
+        urlObj.searchParams.set('hv_scroll_y', Math.round(pendingScrollRestoration.y).toString());
+      }
+
+      const onLoad = () => {
+        frame.removeEventListener('load', onLoad);
+        if (pendingScrollRestoration) {
+          restoreFrameScroll(frame, pendingScrollRestoration.y, pendingScrollRestoration.x);
+        }
+      };
+      frame.addEventListener('load', onLoad);
+
+      frame.src = urlObj.pathname + urlObj.search;
     }
 
     function toggleInspector() {
@@ -829,6 +905,10 @@
       if (!e.data) return;
       if (e.data.type === 'HV_PAGE_LOADED') {
         syncActivePageTab(e.data.pageFile, e.data.pageId);
+        if (pendingScrollRestoration) {
+          const frame = document.getElementById('sandboxFrame');
+          restoreFrameScroll(frame, pendingScrollRestoration.y, pendingScrollRestoration.x);
+        }
       }
       if (e.data.type === 'HV_ELEMENT_SELECTED') {
         selectedElementInfo = e.data.info;
@@ -1132,12 +1212,13 @@
     async function executeUndo() {
       const btn = document.getElementById('undoBtn');
       if (btn) btn.disabled = true;
+      const preUndoScroll = getFrameScrollPos();
       try {
         const res = await fetch('/api/undo', { method: 'POST' });
         const data = await res.json();
         if (data.success) {
           addMessage('agent', `↶ <strong>Undone:</strong> ${data.summary}`);
-          reloadPreview();
+          reloadPreview(null, true, preUndoScroll);
           updateUndoButton(data.canUndo);
         } else {
           addMessage('agent', `⚠️ ${data.message || 'No more changes to undo.'}`);
@@ -1161,6 +1242,9 @@
       const promptInput = document.getElementById('promptInput');
       const prompt = promptInput.value.trim();
       if (!prompt && !currentAttachment) return;
+
+      // Capture scroll position immediately when user triggers Apply Change
+      const preEditScroll = getFrameScrollPos();
 
       // Accurately determine target page from iframe location, selected element, or active tab
       let targetPageId = 'home';
@@ -1220,9 +1304,11 @@
           
           const resultFile = data.targetPage || targetPageFile || 'index.html';
           const targetUrl = `/preview/${resultFile}`;
-          if (frame) {
-            frame.src = `${targetUrl}?t=${Date.now()}`;
-          }
+          
+          const currentScroll = getFrameScrollPos();
+          const finalScroll = (currentScroll.y > 0 || currentScroll.x > 0) ? currentScroll : preEditScroll;
+          
+          reloadPreview(targetUrl, true, finalScroll);
           syncActivePageTab(resultFile, data.targetPageId || targetPageId);
         } else {
           addMessage('agent', `⚠️ ${data.summary || 'Could not complete requested change.'}`);
@@ -1295,12 +1381,13 @@
 
     document.getElementById('revertBtn').addEventListener('click', async () => {
       if (!confirm('Discard all uncommitted sandbox changes and revert to pristine git status?')) return;
+      const preRevertScroll = getFrameScrollPos();
       try {
         const res = await fetch('/api/revert', { method: 'POST' });
         const data = await res.json();
         updateUndoButton(false);
         alert(data.message || 'Reverted successfully.');
-        reloadPreview();
+        reloadPreview(null, true, preRevertScroll);
       } catch (e) {
         alert('Revert failed: ' + e.message);
       }
