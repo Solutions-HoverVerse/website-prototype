@@ -719,6 +719,83 @@ async function processExecutiveEdit({ prompt = '', targetPageId, targetPageFile,
     }
   }
 
+  // 6b. Text Editing on Selected Element (Point & Click Inspector)
+  if (!modified && !savedAssetPath && selectedElement) {
+    const bounds = findElementRange(htmlContent, selectedElement);
+    if (bounds) {
+      let newText = null;
+      const quoted = prompt.match(/["“]([^"”]+)["”]/);
+      if (quoted) {
+        newText = quoted[1].trim();
+      } else {
+        const toMatch = prompt.match(/(?:to|say|with|be|into)\s+[:\-]?\s*([^.,\n]+)/i);
+        if (toMatch) {
+          newText = toMatch[1].trim().replace(/^["']|["']$/g, '');
+        }
+      }
+
+      if (newText) {
+        const block = htmlContent.slice(bounds.start, bounds.end);
+        const openTagEnd = block.indexOf('>') + 1;
+        const closeTagStart = block.lastIndexOf('<');
+
+        if (openTagEnd > 0 && closeTagStart >= openTagEnd) {
+          const opening = block.slice(0, openTagEnd);
+          const inner = block.slice(openTagEnd, closeTagStart);
+          const closing = block.slice(closeTagStart);
+
+          // Preserve icon/arrow if present
+          let preservedTail = '';
+          const arrMatch = inner.match(/<span class=["']arr["']>[\s\S]*?<\/span>/);
+          if (arrMatch && !newText.includes('→') && !newText.includes('arr')) {
+            preservedTail = ' ' + arrMatch[0];
+          }
+
+          const updatedBlock = opening + newText + preservedTail + closing;
+          htmlContent = htmlContent.slice(0, bounds.start) + updatedBlock + htmlContent.slice(bounds.end);
+          modified = true;
+          summary = `Updated text of <${bounds.tagName}> to "${newText}" on ${targetPage.file}.`;
+        }
+      }
+    }
+  }
+
+  // 6c. Button / CTA Text Editing (e.g. "make the demo button say 'Schedule Briefing'")
+  if (!modified && !savedAssetPath && (lowerPrompt.includes('button') || lowerPrompt.includes('cta'))) {
+    let newBtnText = null;
+    const quoted = prompt.match(/["“]([^"”]+)["”]/);
+    if (quoted) {
+      newBtnText = quoted[1].trim();
+    } else {
+      const sayMatch = prompt.match(/say\s+[:\-]?\s*([^.,\n]+)/i);
+      if (sayMatch) newBtnText = sayMatch[1].trim().replace(/^["']|["']$/g, '');
+    }
+
+    if (newBtnText) {
+      let btnRegex;
+      if (lowerPrompt.includes('demo') || lowerPrompt.includes('primary')) {
+        btnRegex = /(<a[^>]*class=["'][^"']*btn--primary[^"']*["'][^>]*>)([\s\S]*?)(<\/a>)/i;
+      } else if (lowerPrompt.includes('outline') || lowerPrompt.includes('secondary') || lowerPrompt.includes('solutions team')) {
+        btnRegex = /(<a[^>]*class=["'][^"']*btn--outline[^"']*["'][^>]*>)([\s\S]*?)(<\/a>)/i;
+      } else {
+        btnRegex = /(<(?:a|button)[^>]*class=["'][^"']*btn[^"']*["'][^>]*>)([\s\S]*?)(<\/(?:a|button)>)/i;
+      }
+
+      if (btnRegex && btnRegex.test(htmlContent)) {
+        htmlContent = htmlContent.replace(btnRegex, (match, open, inner, close) => {
+          let preservedTail = '';
+          const arrMatch = inner.match(/<span class=["']arr["']>[\s\S]*?<\/span>/);
+          if (arrMatch && !newBtnText.includes('→') && !newBtnText.includes('arr')) {
+            preservedTail = ' ' + arrMatch[0];
+          }
+          return open + newBtnText + preservedTail + close;
+        });
+        modified = true;
+        summary = `Updated button label to "${newBtnText}" on ${targetPage.file}.`;
+      }
+    }
+  }
+
   // 7. Text Editing: "change the wording at the very top" (Hero headline/kicker)
   if (!modified && (lowerPrompt.includes('very top') || lowerPrompt.includes('headline') || lowerPrompt.includes('hero') || lowerPrompt.includes('wording'))) {
     let newHeadline = null;
