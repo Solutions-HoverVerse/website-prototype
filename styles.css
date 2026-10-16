@@ -884,9 +884,138 @@ body.divi-on .divi-legend { display: block; }
 .ratio-21-9 { aspect-ratio: 21 / 9; }
 .object-contain { object-fit: contain !important; }
 .object-cover { object-fit: cover !important; }
+
+/* ============================================================
+   PROPORTIONAL SPLIT RATIOS & STACKED POSITIONING
+   ============================================================ */
+
+/* Stacked Layouts: Move Image Above or Below Headers & Text (Full Width) */
+.split-media-grid.stacked-above {
+  grid-template-columns: 1fr !important;
+  gap: 28px !important;
+}
+.split-media-grid.stacked-above .split-media-col {
+  order: -1 !important;
+  width: 100% !important;
+}
+.split-media-grid.stacked-above .split-text-col {
+  order: 1 !important;
+  width: 100% !important;
+  max-width: 960px;
+}
+
+.split-media-grid.stacked-below {
+  grid-template-columns: 1fr !important;
+  gap: 28px !important;
+}
+.split-media-grid.stacked-below .split-media-col {
+  order: 1 !important;
+  width: 100% !important;
+}
+.split-media-grid.stacked-below .split-text-col {
+  order: -1 !important;
+  width: 100% !important;
+  max-width: 960px;
+}
+
+/* Proportional Split Ratios between Media and Text Columns */
+.split-media-grid.ratio-50-50 {
+  grid-template-columns: 1fr 1fr;
+}
+.split-media-grid.ratio-60-40 {
+  grid-template-columns: 0.8fr 1.2fr; /* Text 40%, Media 60% */
+}
+.split-media-grid.ratio-40-60 {
+  grid-template-columns: 1.25fr 0.75fr; /* Text 60%, Media 40% */
+}
+.split-media-grid.ratio-70-30 {
+  grid-template-columns: 0.6fr 1.4fr; /* Text 30%, Media 70% */
+}
+
+/* Reverse Column (Media on Left) with Proportional Split Ratios */
+.split-media-grid.reverse.ratio-50-50 {
+  grid-template-columns: 1fr 1fr;
+}
+.split-media-grid.reverse.ratio-60-40 {
+  grid-template-columns: 1.2fr 0.8fr; /* Media 60%, Text 40% */
+}
+.split-media-grid.reverse.ratio-40-60 {
+  grid-template-columns: 0.75fr 1.25fr; /* Media 40%, Text 60% */
+}
+.split-media-grid.reverse.ratio-70-30 {
+  grid-template-columns: 1.4fr 0.6fr; /* Media 70%, Text 30% */
+}
+
+/* Proportional Typography Scaling for Text and Headers */
+/* When Stacked (Full Width Available): Headers and lead copy scale up to commanding hero proportions */
+.split-media-grid.stacked-above .split-text-col h1,
+.split-media-grid.stacked-below .split-text-col h1 {
+  font-size: clamp(2.4rem, 4vw, 3.25rem);
+  line-height: 1.12;
+  margin-bottom: 16px;
+}
+.split-media-grid.stacked-above .split-text-col h2,
+.split-media-grid.stacked-below .split-text-col h2 {
+  font-size: clamp(2rem, 3.2vw, 2.65rem);
+  line-height: 1.15;
+  margin-bottom: 14px;
+}
+.split-media-grid.stacked-above .split-text-col p,
+.split-media-grid.stacked-below .split-text-col p {
+  font-size: 1.125rem;
+  line-height: 1.62;
+}
+
+/* Media Focus (Image is 60% or 70% wide): Text column is narrower, so headlines scale down gracefully to fit */
+.split-media-grid.ratio-60-40 .split-text-col h1,
+.split-media-grid.ratio-60-40 .split-text-col h2,
+.split-media-grid.ratio-70-30 .split-text-col h1,
+.split-media-grid.ratio-70-30 .split-text-col h2 {
+  font-size: clamp(1.4rem, 2.2vw, 1.85rem);
+  line-height: 1.22;
+  margin-bottom: 10px;
+}
+.split-media-grid.ratio-60-40 .split-text-col h3,
+.split-media-grid.ratio-70-30 .split-text-col h3 {
+  font-size: 1.15rem;
+  line-height: 1.25;
+}
+.split-media-grid.ratio-60-40 .split-text-col p,
+.split-media-grid.ratio-70-30 .split-text-col p {
+  font-size: 0.95rem;
+  line-height: 1.48;
+}
+
+/* Text Focus (Image is 40% wide, Text is 60% wide): Text column has generous room, headlines scale up prominently */
+.split-media-grid.ratio-40-60 .split-text-col h1,
+.split-media-grid.ratio-40-60 .split-text-col h2 {
+  font-size: clamp(1.9rem, 2.9vw, 2.45rem);
+  line-height: 1.18;
+  margin-bottom: 14px;
+}
+.split-media-grid.ratio-40-60 .split-text-col p {
+  font-size: 1.08rem;
+  line-height: 1.58;
+}
+
+/* Balanced 50 / 50 */
+.split-media-grid.ratio-50-50 .split-text-col h1,
+.split-media-grid.ratio-50-50 .split-text-col h2 {
+  font-size: clamp(1.65rem, 2.5vw, 2.15rem);
+  line-height: 1.2;
+}
+.split-media-grid.ratio-50-50 .split-text-col p {
+  font-size: 1rem;
+  line-height: 1.52;
+}
+
 @media (max-width: 900px) {
   .split-media-grid,
-  .split-media-grid.reverse {
+  .split-media-grid.reverse,
+  .split-media-grid.ratio-50-50,
+  .split-media-grid.ratio-60-40,
+  .split-media-grid.ratio-40-60,
+  .split-media-grid.ratio-70-30 {
     grid-template-columns: 1fr !important;
     gap: 28px !important;
   }
@@ -894,4 +1023,5 @@ body.divi-on .divi-legend { display: block; }
     order: unset;
   }
 }
+
 
