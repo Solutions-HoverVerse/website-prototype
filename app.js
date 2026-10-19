@@ -497,6 +497,17 @@
         card.classList.toggle("is-flipped");
       });
     });
+
+    // 4. Mobile Copy Expanders (Progressive Disclosure)
+    var mobileExpanders = document.querySelectorAll(".mobile-copy-expander");
+    Array.prototype.forEach.call(mobileExpanders, function (exp) {
+      var trigger = exp.querySelector(".mobile-copy-expander-trigger");
+      if (!trigger) return;
+      trigger.addEventListener("click", function () {
+        var isOpen = exp.classList.toggle("is-open");
+        trigger.setAttribute("aria-expanded", isOpen ? "true" : "false");
+      });
+    });
   }
 
   fieldDemo();

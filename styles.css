@@ -1464,5 +1464,233 @@ body.divi-on .divi-legend { display: block; }
   }
 }
 
+/* ============================================================
+   MOBILE VISUAL-FIRST ARCHITECTURE (DAVID'S SHOW-DON'T-TELL DIRECTIVE)
+   ============================================================ */
+
+/* 1. Mobile Copy Expander (Progressive Disclosure) */
+.mobile-copy-expander {
+  margin: 16px 0;
+  width: 100%;
+}
+.mobile-copy-expander-trigger {
+  display: none; /* Hidden on desktop; full copy is visible */
+}
+.mobile-copy-expander-content {
+  display: block;
+}
+
+@media (max-width: 900px) {
+  .mobile-copy-expander {
+    margin: 14px 0 20px 0;
+  }
+  .mobile-copy-expander-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 11px 16px;
+    background: rgba(18, 160, 106, 0.08);
+    border: 1px solid rgba(18, 160, 106, 0.25);
+    border-radius: 10px;
+    color: var(--green-deep);
+    font-weight: 600;
+    font-size: 13.5px;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.2s ease;
+    box-sizing: border-box;
+  }
+  .mobile-copy-expander-trigger:hover {
+    background: rgba(18, 160, 106, 0.14);
+    border-color: var(--green);
+  }
+  .mobile-copy-expander-trigger .expander-icon {
+    font-size: 16px;
+    font-weight: 700;
+    transition: transform 0.25s ease;
+  }
+  .mobile-copy-expander.is-open .mobile-copy-expander-trigger .expander-icon {
+    transform: rotate(45deg);
+  }
+  .mobile-copy-expander-content {
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    transition: max-height 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.3s ease;
+  }
+  .mobile-copy-expander.is-open .mobile-copy-expander-content {
+    max-height: 1200px;
+    opacity: 1;
+    padding-top: 14px;
+  }
+
+  /* 2. Mobile Visual Elevation in Homepage Hero */
+  .hero-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .hero-copy {
+    display: contents; /* Allows child re-ordering with media */
+  }
+  .hero-badge {
+    order: 1;
+    margin-bottom: 12px;
+  }
+  .hero h1, .h-display {
+    order: 2;
+    margin-bottom: 16px;
+  }
+  .hero-grid .field-stage {
+    order: 3;
+    margin: 4px 0 16px 0;
+    width: 100%;
+    aspect-ratio: 16 / 10;
+  }
+  .hero-copy .lead {
+    order: 4;
+    margin-bottom: 16px;
+    font-size: 17px;
+    line-height: 1.5;
+  }
+  .hero-actions {
+    order: 5;
+    margin-bottom: 16px;
+    width: 100%;
+  }
+  .hero-grid .mobile-copy-expander {
+    order: 6;
+  }
+  .hero-fine {
+    order: 7;
+    margin-top: 8px;
+  }
+
+  /* 3. Mobile Visual Elevation in Split Media Grids (Why Hoververse, Solutions) */
+  .split-media-grid.mobile-media-elevate {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .split-media-grid.mobile-media-elevate .split-text-col {
+    display: contents;
+  }
+  .split-media-grid.mobile-media-elevate .sec-head {
+    display: contents;
+  }
+  .split-media-grid.mobile-media-elevate .crumb {
+    order: 1;
+    margin-bottom: 8px;
+  }
+  .split-media-grid.mobile-media-elevate h1 {
+    order: 2;
+    margin-bottom: 16px;
+  }
+  .split-media-grid.mobile-media-elevate .split-media-col {
+    order: 3;
+    width: 100%;
+    margin: 4px 0 18px 0;
+  }
+  .split-media-grid.mobile-media-elevate .lead {
+    order: 4;
+    margin-bottom: 18px;
+    font-size: 17px;
+    line-height: 1.5;
+  }
+  .split-media-grid.mobile-media-elevate .hero-actions {
+    order: 5;
+    margin-bottom: 16px;
+    width: 100%;
+  }
+  .split-media-grid.mobile-media-elevate .mobile-copy-expander {
+    order: 6;
+  }
+}
+
+/* 4. Solutions Sector Quick-Jump Horizontal Pills */
+.sector-quick-pills {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 6px 2px 14px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  margin: 18px 0 24px;
+}
+.sector-quick-pills::-webkit-scrollbar {
+  display: none;
+}
+.sector-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: var(--white);
+  border: 1px solid var(--line);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--slate);
+  white-space: nowrap;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 6px rgba(16, 21, 27, 0.04);
+}
+.sector-pill:hover,
+.sector-pill:focus {
+  background: var(--green-soft);
+  border-color: var(--green-line);
+  color: var(--green-deep);
+  transform: translateY(-1px);
+}
+
+/* 5. Mobile Transformation of Solutions Matrix Table */
+@media (max-width: 768px) {
+  .matrix-row.head {
+    display: none;
+  }
+  .matrix {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    border: none;
+    background: transparent;
+  }
+  .matrix-row {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 20px 18px;
+    border: 1px solid var(--line) !important;
+    border-radius: var(--r-md);
+    background: var(--white);
+    box-shadow: 0 4px 14px rgba(16, 21, 27, 0.04);
+  }
+  .matrix-row .line {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 10px;
+    width: 100%;
+  }
+  .matrix-row .line b {
+    font-size: 17px;
+  }
+  .matrix-row .outcome {
+    font-size: 14.5px;
+    line-height: 1.5;
+    color: var(--muted);
+  }
+  .matrix-row .tech {
+    font-size: 13px;
+    background: var(--paper-2);
+    padding: 10px 14px;
+    border-radius: 8px;
+    border-left: 3px solid var(--green);
+  }
+}
+
 
 

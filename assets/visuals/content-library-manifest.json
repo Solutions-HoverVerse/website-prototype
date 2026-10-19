@@ -157,6 +157,20 @@
       "fileSizeKb": 122.7,
       "description": "Side-by-side comparison: Crowded kiosk queue with static printed placard vs ancient museum wall coming alive with illuminated hieroglyphics and artifacts.",
       "planBadge": "Living Heritage"
+    },
+    {
+      "id": "era-evolution-stage",
+      "title": "Four Eras of Input Evolution Stage",
+      "category": "blueprints",
+      "page": "Why Hoververse",
+      "section": "The Next Wave / Hero Stage",
+      "path": "assets/visuals/why/era_evolution_stage.webp",
+      "aspectRatio": "16:9",
+      "format": "WEBP",
+      "dimensions": "1376x768",
+      "fileSizeKb": 119.1,
+      "description": "Gallery stage showing Desktop terminal (1980s), Mobile phone (2007), and an expansive stone architectural wall illuminated with glowing touchless UI operated 3 inches away.",
+      "planBadge": "Why Hoververse Hero"
     }
   ]
 }
