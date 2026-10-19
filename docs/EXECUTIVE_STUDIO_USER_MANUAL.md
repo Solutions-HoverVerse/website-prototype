@@ -14,7 +14,7 @@ Target Repositories: [`Solutions-HoverVerse/website-prototype`](https://github.c
 5. [Text & Typography Editing](#5-text--typography-editing)
 6. [Image, Video, & Media Editing](#6-image-video--media-editing)
 7. [Moving Images & Proportional Layout Reflow](#7-moving-images--proportional-layout-reflow)
-8. [Media Uploads & WebP Fast Page Load Optimization](#8-media-uploads--webp-fast-page-load-optimization)
+8. [The Executive Content Library & Media Pipeline](#8-the-executive-content-library--media-pipeline)
 9. [Undo, Revert, & Unified Diff Inspection](#9-undo-revert--unified-diff-inspection)
 10. [Dual-Pipeline Publishing (Cloudflare & Wix Studio)](#10-dual-pipeline-publishing-cloudflare--wix-studio)
 11. [Command Cheat Sheet for Executives](#11-command-cheat-sheet-for-executives)
@@ -244,28 +244,67 @@ When you adjust the proportion between media and text, the Studio automatically 
 
 ---
 
-## 8. Media Uploads & WebP Fast Page Load Optimization
+## 8. The Executive Content Library & Media Pipeline
 
-Executive Studio includes an integrated media pipeline supporting high-resolution photography, diagrams, vector graphics, animated GIFs, and HTML5 video (`.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.svg`, `.mp4`, `.webm`, `.mov`).
+Executive Studio features a dual-layer media architecture designed to bridge non-technical executive curation with production engineering:
 
-### 1. Uploading Assets
-- **Drag and Drop**: Drag an image or video file directly from your desktop into the Studio right panel.
-- **File Picker**: Click the paperclip icon (`📎`) to select a file from your computer.
+```
++----------------------------------------------------------------------------------------------------+
+|                             DUAL-LAYER MEDIA ARCHITECTURE IN HOVERVERSE                            |
++----------------------------------------------------------------------------------------------------+
+|                                                                                                    |
+|   1. THE EXECUTIVE CONTENT LIBRARY (Interactive Studio Console @ http://localhost:3000)            |
+|   - Visual media catalog directly accessible in the Studio interface                                |
+|   - Filter by: Featured Image Plan Heroes, Technical Diagrams, 3-Frame Gestures, Solutions, Videos|
+|   - Visual card preview with format, resolution, aspect ratio (16:9, 4:3, 1:1), and file size badges|
+|   - One-click insertion: "Insert into Selected", "Split 50/50 With Text", "Banner Below"           |
+|   - Video link management: Paste YouTube unlisted / Cloudflare Stream URLs with custom posters      |
+|   - For: Executives, product marketers, content editors, and design reviews                        |
+|                                                                                                    |
+|   2. THE SCAFFOLDING ASSET LIBRARY (Repository & Build Infrastructure)                             |
+|   - Low-level developer filesystem: hoververse-site/assets/                                        |
+|   - assets/visuals/ (curated stills), assets/video/ (silent loops), assets/uploads/ (user media)   |
+|   - Transpiled by wix-compiler.js into raw GitHub CDN URLs for Wix Studio Custom Elements          |
+|   - For: Git versioning, CI/CD automated deployment, and Cloudflare Pages edge hosting             |
+|                                                                                                    |
++----------------------------------------------------------------------------------------------------+
+```
 
-### 2. Automatic WebP Fast Page Load Conversion
-When you upload a PNG, JPEG, or heavy image format, Executive Studio detects whether it could slow down site performance and presents the **Fast Page Load Optimization Card**:
-- Explains the expected payload reduction (often **65%–85% smaller**).
-- **`⚡ Convert to WebP (Recommended)`**: Compresses and converts the asset to modern `.webp` in real time. Pages load 3× faster on mobile and desktop without visible quality loss.
-- **`Keep Original`**: Uses the raw uploaded format (e.g. for specialized transparent PNGs or vectors).
+### 1. Opening the Executive Content Library
+Access the Content Library at any time via two quick triggers:
+- **Top Header Bar**: Click the **`📚 Content Library`** button.
+- **Contextual Inspector**: Lock onto any headline, section, or image on the canvas and click **`🖼️ Choose from Library`**.
 
-### 3. Layout Action Selector
-Before submitting your upload, select how the new media should be integrated into the page:
-- **`◫ Split (Media Right)`**: Converts the selected text block into a 2-column split with media on the right.
-- **`◫ Split (Media Left)`**: 2-column split with media on the left.
-- **`⬇ Below (Banner)`**: Inserts a full-width featured media panel directly below the selected element.
-- **`⬆ Above (Banner)`**: Inserts a full-width featured media panel directly above the selected element.
-- **`🔄 Replace`**: Seamlessly replaces an existing image or video while preserving all surrounding styles.
-- **`🪄 Auto`**: Lets the AI determine the optimal layout based on your conversational prompt.
+### 2. Exploring Curated Visual Categories
+The Content Library organizes all media according to the **Hoververse Website Image Plan**:
+- **⭐ Image Plan Featured**: Hero visual loops, master brand photography, and dusk corporate lobby scenes.
+- **📐 Technical Blueprints**: SurfaceWare 5-stage vision pipeline, Hover OS edge stack runtime, and SurfaceWare Central fleet dashboard.
+- **🔲 Category Matrices & Sliders**: Physical AI 3-Tile Matrix, 4 Problem Before/After cards, and Living Heritage before/after comparisons.
+- **🖐️ Gesture Sequences**: 3-frame synchronization strips (Point · Hover · Select).
+- **🏥 Healthcare & Solutions**: Sterile cleanroom SOPs, UV microbial contamination split, and burn rehabilitation therapy.
+- **🎬 Video Loops & Streaming Shells**: Silent HTML5 looping MP4/WebM (<5MB) and responsive YouTube/Cloudflare Stream players.
+- **📁 Executive Uploads**: Custom photography and renders uploaded directly by the executive team.
+
+### 3. One-Click Canvas Injections
+Select any asset card in the library to reveal instant layout injection options:
+- **`🎯 Insert into Selected`**: Places or swaps the asset directly into the currently locked element.
+- **`◫ Split (Media Right)`**: Splits the selected text block into a balanced 2-column layout with media on the right.
+- **`◫ Split (Media Left)`**: Splits the selected text block into a balanced 2-column layout with media on the left.
+- **`⬇ Banner Below`**: Drops a full-width featured media panel directly underneath the active section.
+- **`⬆ Banner Above`**: Places a full-width featured media panel directly above the active section.
+- **`🔄 Replace Active`**: Swaps the visual in an existing image/video block without disrupting layout handles or typography proportions.
+
+### 4. Uploading Assets & Fast WebP Conversion
+- **Drag and Drop**: Drag image or video files directly from your computer into the Studio panel or Content Library dropzone.
+- **Supported Formats**: `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.svg`, `.mp4`, `.webm`, `.mov`.
+- **Automatic WebP Fast Page Load Conversion**: Compresses and converts raster images into modern `.webp` in real time, delivering **65%–85% payload savings** for lightning-fast mobile page loads.
+- **Lossless Original Retention**: Keep the original file accessible in the scaffolding library while serving the optimized WebP asset to web visitors.
+
+### 5. Video Streaming Integration (YouTube & Cloudflare Stream)
+For Level 2 deep-dive explainer videos (30–60s):
+- Click **`+ Add Streaming Video`** inside the Content Library.
+- Paste your unlisted YouTube URL or Cloudflare Stream Video ID.
+- Studio automatically generates a responsive 16:9 video container with a lightweight click-to-play poster façade, eliminating heavy iframe script payloads until the visitor chooses to watch.
 
 ---
 

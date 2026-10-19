@@ -440,7 +440,67 @@
     }, 400);
   }
 
+  /* ---------- Interactive Level 2 Components (Image Plan) ---------- */
+  function initLevel2Components() {
+    // 1. Technical Expanders
+    var expanders = document.querySelectorAll(".tech-expander");
+    Array.prototype.forEach.call(expanders, function (exp) {
+      var btn = exp.querySelector(".tech-expander-btn");
+      if (!btn) return;
+      btn.addEventListener("click", function () {
+        var isOpen = exp.classList.toggle("is-open");
+        btn.setAttribute("aria-expanded", isOpen ? "true" : "false");
+      });
+    });
+
+    // 2. Before / After Comparison Sliders
+    var sliders = document.querySelectorAll(".comparison-slider");
+    Array.prototype.forEach.call(sliders, function (slider) {
+      var isDragging = false;
+      function updatePos(clientX) {
+        var rect = slider.getBoundingClientRect();
+        var x = clientX - rect.left;
+        var pct = Math.max(0, Math.min(100, (x / rect.width) * 100));
+        slider.style.setProperty("--clip-pos", pct + "%");
+      }
+      slider.addEventListener("mousedown", function (e) {
+        isDragging = true;
+        updatePos(e.clientX);
+      });
+      window.addEventListener("mousemove", function (e) {
+        if (!isDragging) return;
+        updatePos(e.clientX);
+      });
+      window.addEventListener("mouseup", function () {
+        isDragging = false;
+      });
+      slider.addEventListener("touchstart", function (e) {
+        if (e.touches && e.touches[0]) {
+          isDragging = true;
+          updatePos(e.touches[0].clientX);
+        }
+      }, { passive: true });
+      slider.addEventListener("touchmove", function (e) {
+        if (isDragging && e.touches && e.touches[0]) {
+          updatePos(e.touches[0].clientX);
+        }
+      }, { passive: true });
+      window.addEventListener("touchend", function () {
+        isDragging = false;
+      });
+    });
+
+    // 3. Problem Before/After Flip Cards
+    var flipCards = document.querySelectorAll(".problem-flip-card");
+    Array.prototype.forEach.call(flipCards, function (card) {
+      card.addEventListener("click", function () {
+        card.classList.toggle("is-flipped");
+      });
+    });
+  }
+
   fieldDemo();
   pipeStage();
   diviOverlay();
+  initLevel2Components();
 })();

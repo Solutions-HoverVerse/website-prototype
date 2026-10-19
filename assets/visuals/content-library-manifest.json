@@ -1,0 +1,162 @@
+{
+  "version": "1.0",
+  "lastUpdated": "2026-10-19",
+  "categories": [
+    {
+      "id": "all",
+      "label": "All Media"
+    },
+    {
+      "id": "heroes",
+      "label": "\u2b50 Image Plan Featured"
+    },
+    {
+      "id": "blueprints",
+      "label": "\ud83d\udcd0 Technical Blueprints"
+    },
+    {
+      "id": "matrices",
+      "label": "\ud83d\udd32 Category Matrices & Sliders"
+    },
+    {
+      "id": "gestures",
+      "label": "\ud83d\udd90\ufe0f Gesture Sequences"
+    },
+    {
+      "id": "solutions",
+      "label": "\ud83c\udfe5 Healthcare & Solutions"
+    },
+    {
+      "id": "uploads",
+      "label": "\ud83d\udcc1 Executive Uploads"
+    }
+  ],
+  "items": [
+    {
+      "id": "platform-hero-poster",
+      "title": "Platform Hero Poster",
+      "category": "heroes",
+      "page": "Platform",
+      "section": "Hero (Display split)",
+      "path": "assets/visuals/platform/platform_hero_poster.webp",
+      "aspectRatio": "16:9",
+      "format": "WEBP",
+      "dimensions": "1376x768",
+      "fileSizeKb": 85.9,
+      "description": "Dark minimalist slate architectural wall at dusk. Human hand raised mid-gesture hovering 3 inches away; glowing cyan UI blooms on stone with zero contact.",
+      "planBadge": "Image Plan Hero"
+    },
+    {
+      "id": "surfaceware-layer1-macro",
+      "title": "SurfaceWare Precision Fingertip Macro",
+      "category": "blueprints",
+      "page": "Platform",
+      "section": "Layer 01 \u00b7 SurfaceWare",
+      "path": "assets/visuals/platform/surfaceware_layer1_macro.webp",
+      "aspectRatio": "16:9",
+      "format": "WEBP",
+      "dimensions": "1376x768",
+      "fileSizeKb": 87.5,
+      "description": "Macro close-up of human fingertip hovering 5mm above honed granite with emerald telemetry halo tracking coordinate lock with zero physical contact.",
+      "planBadge": "Layer 01 Engine"
+    },
+    {
+      "id": "hoveros-layer2-morph",
+      "title": "Hover OS Browser-to-Wall Morph",
+      "category": "blueprints",
+      "page": "Platform",
+      "section": "Layer 02 \u00b7 Hover OS",
+      "path": "assets/visuals/platform/hoveros_layer2_morph.webp",
+      "aspectRatio": "16:9",
+      "format": "WEBP",
+      "dimensions": "1376x768",
+      "fileSizeKb": 81.8,
+      "description": "Enterprise web application UI morphing seamlessly from a floating glass browser frame into a life-size wall projection in a hospital lobby.",
+      "planBadge": "Layer 02 Runtime"
+    },
+    {
+      "id": "central-layer3-dashboard",
+      "title": "SurfaceWare Central Fleet Dashboard",
+      "category": "blueprints",
+      "page": "Platform",
+      "section": "Layer 03 \u00b7 SurfaceWare Central",
+      "path": "assets/visuals/platform/central_layer3_dashboard.webp",
+      "aspectRatio": "16:9",
+      "format": "WEBP",
+      "dimensions": "1376x768",
+      "fileSizeKb": 53.2,
+      "description": "Sleek dark-mode enterprise fleet dashboard on a matte black laptop, displaying global site pins and telemetry across a boardroom table.",
+      "planBadge": "Layer 03 Portal"
+    },
+    {
+      "id": "homepage-hero-poster",
+      "title": "Dusk Corporate Lobby Brand Hero",
+      "category": "heroes",
+      "page": "Home",
+      "section": "Hero (The Field)",
+      "path": "assets/visuals/homepage/homepage_hero_poster.webp",
+      "aspectRatio": "16:9",
+      "format": "WEBP",
+      "dimensions": "1376x768",
+      "fileSizeKb": 108.9,
+      "description": "Expansive dusk corporate lobby with twilight city view. Visitor raises hand toward dark slate feature wall, illuminating glowing wayfinding UI.",
+      "planBadge": "Master Brand Hero"
+    },
+    {
+      "id": "physical-ai-matrix",
+      "title": "Physical AI 3-Tile Matrix",
+      "category": "matrices",
+      "page": "Home",
+      "section": "Category Position (Physical AI)",
+      "path": "assets/visuals/homepage/physical_ai_matrix.webp",
+      "aspectRatio": "16:9",
+      "format": "WEBP",
+      "dimensions": "1376x768",
+      "fileSizeKb": 112.5,
+      "description": "Editorial triptych comparing Personal AI (AR glasses, desaturated), Robotic AI (humanoid, desaturated), and Built Environment (luminous touchless wall, vibrant).",
+      "planBadge": "Category Matrix"
+    },
+    {
+      "id": "gesture-sequence-strip",
+      "title": "3-Frame Gesture Sequence (Point \u00b7 Hover \u00b7 Select)",
+      "category": "gestures",
+      "page": "Home",
+      "section": "How It Feels",
+      "path": "assets/visuals/homepage/gesture_sequence_strip.webp",
+      "aspectRatio": "16:9",
+      "format": "WEBP",
+      "dimensions": "1376x768",
+      "fileSizeKb": 98.0,
+      "description": "Three synchronized macro frames: Point (intent focus), Hover (glowing green tracking halo), and Select (energetic ripple pulse commit).",
+      "planBadge": "3-Frame Gesture"
+    },
+    {
+      "id": "healthcare-split",
+      "title": "Healthcare Touch vs Touchless Split",
+      "category": "solutions",
+      "page": "Home / Health",
+      "section": "Problems We Solve / Clinical SOPs",
+      "path": "assets/visuals/homepage/healthcare_problem_solution.webp",
+      "aspectRatio": "16:9",
+      "format": "WEBP",
+      "dimensions": "1376x768",
+      "fileSizeKb": 72.7,
+      "description": "Side-by-side contrast: Nurse touching grimy contaminated touchscreen with hygiene risks vs touchless sterile glass wall operated 4 inches away.",
+      "planBadge": "Hover Health"
+    },
+    {
+      "id": "museum-split",
+      "title": "Museum Placard vs Interactive Storytelling",
+      "category": "solutions",
+      "page": "Home / Heritage",
+      "section": "Problems We Solve / Cultural Exhibits",
+      "path": "assets/visuals/homepage/museum_problem_solution.webp",
+      "aspectRatio": "16:9",
+      "format": "WEBP",
+      "dimensions": "1376x768",
+      "fileSizeKb": 122.7,
+      "description": "Side-by-side comparison: Crowded kiosk queue with static printed placard vs ancient museum wall coming alive with illuminated hieroglyphics and artifacts.",
+      "planBadge": "Living Heritage"
+    }
+  ]
+}
